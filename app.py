@@ -12,7 +12,7 @@ import numpy as np
 # ----------------------------------------------------------
 
 st.set_page_config(
-    page_title="Accounts Receivable Dashboard",
+    page_title="FastRanking Dashboard",
     page_icon="💰",
     layout="wide"
 )
