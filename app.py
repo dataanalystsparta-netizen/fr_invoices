@@ -399,10 +399,13 @@ customer_table = customer_table.sort_values(
 
 customer_table = customer_table.reset_index()
 
-customer_table = customer_table.style.format(
-    "£{:,.2f}",
-    subset=customer_table.columns[1:]
-)
+# Format currency columns
+currency_cols = customer_table.columns[1:]
+
+for col in currency_cols:
+    customer_table[col] = customer_table[col].apply(
+        lambda x: "-" if x == 0 else f"£{x:,.2f}"
+    )
 
 st.dataframe(
     customer_table,
