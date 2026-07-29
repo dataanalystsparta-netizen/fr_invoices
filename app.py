@@ -253,14 +253,21 @@ st.subheader("Filters")
 
 f1, f2 = st.columns(2)
 
-min_date = invoices["Invoice Date"].min().date()
-max_date = invoices["Invoice Date"].max().date()
+from datetime import date
+
+# Fixed selectable range
+min_date = date(2021, 1, 1)
+max_date = date(2027, 12, 31)
+
+# Default dates based on actual invoice data
+default_start = invoices["Invoice Date"].min().date()
+default_end = invoices["Invoice Date"].max().date()
 
 with f1:
 
     start_date = st.date_input(
         "Start Date",
-        value=min_date,
+        value=default_start,
         min_value=min_date,
         max_value=max_date
     )
@@ -269,11 +276,10 @@ with f2:
 
     end_date = st.date_input(
         "End Date",
-        value=max_date,
+        value=default_end,
         min_value=min_date,
         max_value=max_date
     )
-
 # ----------------------------------------------------------
 # FILTER DATA
 # ----------------------------------------------------------
