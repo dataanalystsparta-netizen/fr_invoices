@@ -635,135 +635,123 @@ with k3:
 
 st.divider()
 
+
 # ----------------------------------------------------------
-# INVOICE LIST
+# BUILD INVOICE LEDGER
 # ----------------------------------------------------------
 
-st.subheader("Invoices")
+ledger = customer_invoices.copy()
 
-invoice_columns = [
-    "Invoice Number",
-    "Invoice Date",
-    "Due Date",
-    "Invoice Status",
-    "Total",
-    "Balance"
+# Payment Date
+payment_dates = (
+    customer_payments
+    .groupby("Invoice Number", as_index=False)
+    .agg(
+        Payment_Date=("Date", "max")
+    )
+)
+
+ledger = ledger.merge(
+    payment_dates,
+    on="Invoice Number",
+    how="left"
+)
+
+# Default columns
+ledger["Status"] = "Paid"
+ledger["Days Overdue"] = 0
+
+# ----------------------------------------------------------
+# CURRENT ITEMS
+# ----------------------------------------------------------
+
+current_lookup = (
+    ar_current[
+        ["transaction_number", "balance"]
+    ]
+    .rename(columns={
+        "transaction_number": "Invoice Number",
+        "balance": "Current Balance"
+    })
+)
+
+ledger = ledger.merge(
+    current_lookup,
+    on="Invoice Number",
+    how="left"
+)
+
+# ----------------------------------------------------------
+# OVERDUE ITEMS
+# ----------------------------------------------------------
+
+overdue_lookup = (
+    ar_overdue[
+        [
+            "transaction_number",
+            "balance",
+            "age"
+        ]
+    ]
+    .rename(columns={
+        "transaction_number": "Invoice Number",
+        "balance": "Overdue Balance",
+        "age": "Days Overdue"
+    })
+)
+
+ledger = ledger.merge(
+    overdue_lookup,
+    on="Invoice Number",
+    how="left"
+)
+
+# ----------------------------------------------------------
+# STATUS
+# ----------------------------------------------------------
+
+ledger["Status"] = "Paid"
+
+ledger.loc[
+    ledger["Current Balance"].notna(),
+    "Status"
+] = "Current"
+
+ledger.loc[
+    ledger["Overdue Balance"].notna(),
+    "Status"
+] = "Overdue"
+
+ledger["Paid Amount"] = ledger["Paid"]
+
+ledger["Outstanding"] = ledger["Balance"]
+
+ledger = ledger[
+    [
+        "Invoice Number",
+        "Invoice Date",
+        "Due Date",
+        "Payment_Date",
+        "Status",
+        "Days Overdue",
+        "Total",
+        "Paid Amount",
+        "Outstanding"
+    ]
 ]
 
-invoice_table = customer_invoices[invoice_columns].copy()
-
-invoice_table = invoice_table.rename(columns={
+ledger = ledger.rename(columns={
     "Invoice Number":"Invoice",
-    "Invoice Date":"Invoice Date",
-    "Due Date":"Due Date",
-    "Invoice Status":"Status",
-    "Total":"Invoice Total (£)",
-    "Balance":"Outstanding (£)"
+    "Payment_Date":"Payment Date",
+    "Total":"Amount (£)",
+    "Paid Amount":"Paid (£)",
+    "Outstanding":"Outstanding (£)"
 })
 
+st.subheader("Invoice Ledger")
+
 st.dataframe(
-    invoice_table,
+    ledger,
     use_container_width=True,
     hide_index=True
 )
-
-st.divider()
-
-# ----------------------------------------------------------
-# PAYMENT HISTORY
-# ----------------------------------------------------------
-
-st.subheader("Payments Received")
-
-if len(customer_payments):
-
-    payment_columns = [
-        "Date",
-        "Invoice Number",
-        "Mode",
-        "Amount Applied to Invoice"
-    ]
-
-    payment_table = customer_payments[payment_columns].copy()
-
-    payment_table = payment_table.rename(columns={
-        "Date":"Payment Date",
-        "Invoice Number":"Invoice",
-        "Mode":"Method",
-        "Amount Applied to Invoice":"Amount (£)"
-    })
-
-    st.dataframe(
-        payment_table,
-        use_container_width=True,
-        hide_index=True
-    )
-
-else:
-
-    st.info("No payment records found.")
-
-st.divider()
-
-# ----------------------------------------------------------
-# OPEN / OVERDUE ITEMS
-# ----------------------------------------------------------
-
-st.subheader("Outstanding Invoices")
-
-current_due = ar_current[
-    ar_current["customer_name"] == selected_customer
-]
-
-overdue = ar_overdue[
-    ar_overdue["customer_name"] == selected_customer
-]
-
-if len(current_due):
-
-    st.success("Current Outstanding")
-
-    st.dataframe(
-        current_due[
-            [
-                "transaction_number",
-                "due_date",
-                "balance"
-            ]
-        ],
-        use_container_width=True,
-        hide_index=True
-    )
-
-if len(overdue):
-
-    st.error("Overdue")
-
-    overdue_table = overdue[
-        [
-            "transaction_number",
-            "due_date",
-            "age",
-            "balance"
-        ]
-    ]
-
-    overdue_table = overdue_table.rename(columns={
-        "transaction_number":"Invoice",
-        "due_date":"Due Date",
-        "age":"Days Overdue",
-        "balance":"Outstanding (£)"
-    })
-
-    st.dataframe(
-        overdue_table,
-        use_container_width=True,
-        hide_index=True
-    )
-
-if (len(current_due) == 0) and (len(overdue) == 0):
-
-    st.success("No outstanding invoices.")
-
-
-
