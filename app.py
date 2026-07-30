@@ -468,6 +468,23 @@ for customer in sorted(display_df["Customer Name"].unique()):
 
     rows.append(row)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+customer_table = pd.DataFrame(rows)
+
 # ----------------------------------------------------------
 # OUTSTANDING ONLY FILTER
 # ----------------------------------------------------------
@@ -512,15 +529,6 @@ if show_outstanding_only:
 
 
 
-
-
-
-
-
-
-
-
-customer_table = pd.DataFrame(rows)
 
 def colour_cells(value):
 
