@@ -98,6 +98,9 @@ def load_data():
                 errors="coerce"
             )
 
+
+
+
     # ------------------------------
     # Numeric columns
     # ------------------------------
@@ -171,25 +174,6 @@ def load_data():
         .drop_duplicates(subset="Invoice Number", keep="first")
         .reset_index(drop=True)
     )
-
-    # ------------------------------------------------------
-    # PAYMENT SUMMARY
-    # ------------------------------------------------------
-    
-    payment_summary = (
-        payments.groupby("Invoice Number", as_index=False)
-        .agg(
-            Paid=("Amount Applied to Invoice", "sum")
-        )
-    )
-    
-    invoices = invoices.merge(
-        payment_summary,
-        on="Invoice Number",
-        how="left"
-    )
-    
-    invoices["Paid"] = invoices["Paid"].fillna(0)
 
     # ------------------------------------------------------
     # CUSTOMER SUMMARY
@@ -389,139 +373,49 @@ st.dataframe(
 
 st.divider()
 
-
-
 # ----------------------------------------------------------
-# CUSTOMER PAYMENT MATRIX
+# CUSTOMER MONTHLY BREAKDOWN
 # ----------------------------------------------------------
 
-months = sorted(display_df["Month"].unique())
+st.subheader("Customer Invoice Breakdown")
 
-rows = []
-
-for customer in sorted(display_df["Customer Name"].unique()):
-
-    row = {"Customer Name": customer}
-
-    customer_df = display_df[
-        display_df["Customer Name"] == customer
-    ]
-
-    total_invoice = 0
-    total_paid = 0
-
-    for month in months:
-
-        month_df = customer_df[
-            customer_df["Month"] == month
-        ]
-
-        invoice_value = month_df["Total"].sum()
-        paid_value = month_df["Paid"].sum()
-
-        total_invoice += invoice_value
-        total_paid += paid_value
-
-        if invoice_value == 0:
-            row[month] = "-"
-
-        elif paid_value == 0:
-            row[month] = f"£0 / £{invoice_value:,.0f}"
-
-        elif paid_value >= invoice_value:
-            row[month] = f"£{invoice_value:,.0f}"
-
-        else:
-            row[month] = f"£{paid_value:,.0f} / £{invoice_value:,.0f}"
-
-    if total_invoice == 0:
-        row["Total"] = "-"
-    
-    elif total_paid == 0:
-        row["Total"] = f"£0 / £{total_invoice:,.0f}"
-    
-    elif total_paid >= total_invoice:
-        row["Total"] = f"£{total_invoice:,.0f}"
-    
-    else:
-        row["Total"] = f"£{total_paid:,.0f} / £{total_invoice:,.0f}"
-
-
-
-
-
-
-    
-    rows.append(row)
-
-customer_table = pd.DataFrame(rows)
-
-def colour_cells(value):
-
-    if value == "-":
-        return ""
-
-    if "/" not in value:
-        return "background-color:#d9ead3;"
-
-    paid = float(
-        value.split("/")[0]
-        .replace("£", "")
-        .replace(",", "")
-        .strip()
+customer_table = (
+    display_df
+    .pivot_table(
+        index="Customer Name",
+        columns="Month",
+        values="Total",
+        aggfunc="sum",
+        fill_value=0
     )
-
-    invoice = float(
-        value.split("/")[1]
-        .replace("£", "")
-        .replace(",", "")
-        .strip()
-    )
-
-    if paid == 0:
-        return "background-color:#f4cccc;"
-
-    return "background-color:#fff2cc;"
-
-
-
-# ----------------------------------------------------------
-# INVOICE LIST
-# ----------------------------------------------------------
-
-st.subheader("Invoices")
-
-invoice_columns = [
-    "Invoice Number",
-    "Invoice Date",
-    "Due Date",
-    "Invoice Status",
-    "Total",
-    "Balance"
-]
-
-invoice_table = customer_invoices[invoice_columns].copy()
-
-invoice_table = invoice_table.rename(columns={
-    "Invoice Number":"Invoice",
-    "Invoice Date":"Invoice Date",
-    "Due Date":"Due Date",
-    "Invoice Status":"Status",
-    "Total":"Invoice Total (£)",
-    "Balance":"Outstanding (£)"
-})
-
-styled = customer_table.style.map(
-    colour_cells,
-    subset=customer_table.columns[1:]
 )
 
+customer_table["Total"] = customer_table.sum(axis=1)
+
+customer_table = customer_table.sort_values(
+    "Total",
+    ascending=False
+)
+
+customer_table = customer_table.reset_index()
+
+# Format currency columns
+currency_cols = customer_table.columns[1:]
+
+for col in currency_cols:
+    customer_table[col] = customer_table[col].apply(
+        lambda x: "-" if x == 0 else f"£{x:,.2f}"
+    )
+
 st.dataframe(
-    styled,
+    customer_table,
     use_container_width=True,
     hide_index=True
 )
-st.divider()
+
+
+
+
 # ==========================================================
 # PART 3 - CUSTOMER DRILLDOWN
 # ==========================================================
@@ -539,11 +433,7 @@ selected_customer = st.selectbox(
     "Select Customer",
     customer_list
 )
-# ----------------------------------------------------------
-# CUSTOMER MONTHLY BREAKDOWN
-# ----------------------------------------------------------
 
-st.subheader("Customer Invoice Breakdown")
 # ----------------------------------------------------------
 # CUSTOMER DATA
 # ----------------------------------------------------------
@@ -585,6 +475,41 @@ with k3:
     )
 
 st.divider()
+
+# ----------------------------------------------------------
+# INVOICE LIST
+# ----------------------------------------------------------
+
+st.subheader("Invoices")
+
+invoice_columns = [
+    "Invoice Number",
+    "Invoice Date",
+    "Due Date",
+    "Invoice Status",
+    "Total",
+    "Balance"
+]
+
+invoice_table = customer_invoices[invoice_columns].copy()
+
+invoice_table = invoice_table.rename(columns={
+    "Invoice Number":"Invoice",
+    "Invoice Date":"Invoice Date",
+    "Due Date":"Due Date",
+    "Invoice Status":"Status",
+    "Total":"Invoice Total (£)",
+    "Balance":"Outstanding (£)"
+})
+
+st.dataframe(
+    invoice_table,
+    use_container_width=True,
+    hide_index=True
+)
+
+st.divider()
+
 # ----------------------------------------------------------
 # PAYMENT HISTORY
 # ----------------------------------------------------------
