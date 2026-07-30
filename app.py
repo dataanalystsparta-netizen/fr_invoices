@@ -407,16 +407,70 @@ st.subheader("Customer Invoice Breakdown")
 # ----------------------------------------------------------
 # CUSTOMER PAYMENT MATRIX
 # ----------------------------------------------------------
+# ----------------------------------------------------------
+# CUSTOMER TABLE FILTERS
+# ----------------------------------------------------------
 
-months = sorted(display_df["Month"].unique())
+f1, f2 = st.columns(2)
 
+years = sorted(display_df["Invoice Date"].dt.year.dropna().unique())
+
+months = [
+    "January", "February", "March", "April",
+    "May", "June", "July", "August",
+    "September", "October", "November", "December"
+]
+
+with f1:
+
+    selected_years = st.multiselect(
+        "Year",
+        options=years,
+        default=years
+    )
+
+with f2:
+
+    selected_months = st.multiselect(
+        "Month",
+        options=months,
+        default=months
+    )
+
+
+
+###################################################################
+months = sorted(customer_display["Month"].unique())
+
+
+# ----------------------------------------------------------
+# FILTER FOR CUSTOMER MATRIX
+# ----------------------------------------------------------
+
+customer_display = display_df.copy()
+
+customer_display = customer_display[
+    customer_display["Invoice Date"].dt.year.isin(selected_years)
+]
+
+customer_display = customer_display[
+    customer_display["Invoice Date"].dt.month_name().isin(selected_months)
+]
+
+
+
+
+
+
+
+#########################################################################
 rows = []
 
-for customer in sorted(display_df["Customer Name"].unique()):
+for customer in sorted(customer_display["Customer Name"].unique()):
 
     row = {"Customer Name": customer}
 
-    customer_df = display_df[
+    customer_df = customer_display[
         display_df["Customer Name"] == customer
     ]
 
