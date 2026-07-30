@@ -390,6 +390,30 @@ monthly_display = monthly_display.rename(columns={
     "Outstanding":"Outstanding (£)"
 })
 
+
+# ----------------------------------------------------------
+# GRAND TOTAL
+# ----------------------------------------------------------
+
+grand_total = pd.DataFrame([{
+    "Month": "TOTAL",
+    "Customers": monthly_display["Customers"].sum(),
+    "Invoices": monthly_display["Invoices"].sum(),
+    "Invoiced (£)": monthly_display["Invoiced (£)"].sum(),
+    "Outstanding (£)": monthly_display["Outstanding (£)"].sum()
+}])
+
+monthly_display = pd.concat(
+    [monthly_display, grand_total],
+    ignore_index=True
+)
+
+
+##########
+
+
+
+
 st.dataframe(
     monthly_display,
     use_container_width=True,
