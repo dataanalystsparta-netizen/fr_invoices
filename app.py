@@ -440,9 +440,17 @@ show_outstanding_only = st.checkbox(
 
 
 months = sorted(display_df["Month"].unique())
+# ----------------------------------------------------------
+# GRAND TOTALS
+# ----------------------------------------------------------
 
+grand_invoice = {m: 0 for m in months}
+grand_paid = {m: 0 for m in months}
+
+overall_invoice = 0
+overall_paid = 0
 rows = []
-
+########################################################
 for customer in sorted(display_df["Customer Name"].unique()):
 
     row = {"Customer Name": customer}
@@ -462,9 +470,13 @@ for customer in sorted(display_df["Customer Name"].unique()):
 
         invoice_value = month_df["Total"].sum()
         paid_value = month_df["Paid"].sum()
+        grand_invoice[month] += invoice_value
+        grand_paid[month] += paid_value
 
         total_invoice += invoice_value
         total_paid += paid_value
+        overall_invoice += invoice_value
+        overall_paid += paid_value
 
         if invoice_value == 0:
             row[month] = "-"
@@ -493,8 +505,44 @@ for customer in sorted(display_df["Customer Name"].unique()):
     rows.append(row)
 
 
+# ----------------------------------------------------------
+# GRAND TOTAL ROW
+# ----------------------------------------------------------
 
+total_row = {
+    "Customer Name": "GRAND TOTAL"
+}
 
+for month in months:
+
+    invoice = grand_invoice[month]
+    paid = grand_paid[month]
+
+    if invoice == 0:
+        total_row[month] = "-"
+
+    elif paid == 0:
+        total_row[month] = f"£0 / £{invoice:,.0f}"
+
+    elif paid >= invoice:
+        total_row[month] = f"£{invoice:,.0f}"
+
+    else:
+        total_row[month] = f"£{paid:,.0f} / £{invoice:,.0f}"
+
+if overall_invoice == 0:
+    total_row["Total"] = "-"
+
+elif overall_paid == 0:
+    total_row["Total"] = f"£0 / £{overall_invoice:,.0f}"
+
+elif overall_paid >= overall_invoice:
+    total_row["Total"] = f"£{overall_invoice:,.0f}"
+
+else:
+    total_row["Total"] = f"£{overall_paid:,.0f} / £{overall_invoice:,.0f}"
+
+rows.append(total_row)
 
 
 
