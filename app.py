@@ -880,3 +880,78 @@ st.dataframe(
     hide_index=True
 )
 
+print("Unique Invoice Numbers:", invoices["Invoice Number"].nunique())
+print("Rows:", len(invoices))
+print("Duplicate Invoice Numbers:", invoices["Invoice Number"].duplicated().sum())
+print("Total Invoice Balance:", invoices["Balance"].sum())
+ar_all = pd.concat([ar_current, ar_overdue], ignore_index=True)
+
+ar_all = (
+    ar_all.groupby("transaction_number", as_index=False)
+    .agg(
+        AR_Balance=("balance", "sum")
+    )
+)
+invoice_balances = (
+    invoices.groupby("Invoice Number", as_index=False)
+    .agg(
+        Invoice_Balance=("Balance", "sum")
+    )
+)
+
+compare = invoice_balances.merge(
+    ar_all,
+    left_on="Invoice Number",
+    right_on="transaction_number",
+    how="outer"
+)
+compare["Invoice_Balance"] = compare["Invoice_Balance"].fillna(0)
+compare["AR_Balance"] = compare["AR_Balance"].fillna(0)
+
+compare["Difference"] = (
+    compare["Invoice_Balance"]
+    - compare["AR_Balance"]
+)
+compare[
+    compare["Difference"] != 0
+]
+compare[
+    compare["AR_Balance"] == 0
+]
+compare[
+    compare["Invoice_Balance"] == 0
+]
+# ----------------------------------------------------------
+# PAYMENT RECONCILIATION
+# ----------------------------------------------------------
+
+check = (
+    invoices[
+        [
+            "Invoice Number",
+            "Customer Name",
+            "Total",
+            "Balance"
+        ]
+    ]
+    .merge(
+        payments_per_invoice,
+        on="Invoice Number",
+        how="left"
+    )
+)
+
+check["Paid"] = check["Paid"].fillna(0)
+
+check["Expected Balance"] = (
+    check["Total"] - check["Paid"]
+)
+
+check["Difference"] = (
+    check["Expected Balance"]
+    - check["Balance"]
+)
+
+check = check[
+    abs(check["Difference"]) > 0.01
+]
