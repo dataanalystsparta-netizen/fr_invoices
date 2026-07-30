@@ -634,97 +634,89 @@ with k3:
     )
 
 st.divider()
-
-
 # ----------------------------------------------------------
-# BUILD INVOICE LEDGER
+# INVOICE LEDGER
 # ----------------------------------------------------------
+
+st.subheader("Invoice Ledger")
 
 ledger = customer_invoices.copy()
 
-# Payment Date
-payment_dates = (
+# ----------------------------------------------------------
+# PAYMENT SUMMARY
+# ----------------------------------------------------------
+
+payment_summary = (
     customer_payments
     .groupby("Invoice Number", as_index=False)
     .agg(
-        Payment_Date=("Date", "max")
+        Payment_Date=("Date", "max"),
+        Paid_Amount=("Amount Applied to Invoice", "sum")
     )
 )
 
 ledger = ledger.merge(
-    payment_dates,
+    payment_summary,
     on="Invoice Number",
     how="left"
 )
 
-# Default columns
-ledger["Status"] = "Paid"
-ledger["Days Overdue"] = 0
-
-# ----------------------------------------------------------
-# CURRENT ITEMS
-# ----------------------------------------------------------
-
-current_lookup = (
-    ar_current[
-        ["transaction_number", "balance"]
-    ]
-    .rename(columns={
-        "transaction_number": "Invoice Number",
-        "balance": "Current Balance"
-    })
+ledger["Paid_Amount"] = (
+    ledger["Paid_Amount"]
+    .fillna(0)
 )
 
-ledger = ledger.merge(
-    current_lookup,
-    on="Invoice Number",
-    how="left"
+ledger["Payment_Date"] = (
+    ledger["Payment_Date"]
 )
 
 # ----------------------------------------------------------
-# OVERDUE ITEMS
+# OUTSTANDING
 # ----------------------------------------------------------
 
-overdue_lookup = (
-    ar_overdue[
-        [
-            "transaction_number",
-            "balance",
-            "age"
-        ]
-    ]
-    .rename(columns={
-        "transaction_number": "Invoice Number",
-        "balance": "Overdue Balance",
-        "age": "Days Overdue"
-    })
-)
+ledger["Outstanding"] = ledger["Balance"]
 
-ledger = ledger.merge(
-    overdue_lookup,
-    on="Invoice Number",
-    how="left"
-)
+# Safety check
+
+ledger["Paid_Amount"] = ledger[
+    ["Paid_Amount", "Total"]
+].min(axis=1)
 
 # ----------------------------------------------------------
 # STATUS
 # ----------------------------------------------------------
 
-ledger["Status"] = "Paid"
+today = pd.Timestamp.today().normalize()
 
-ledger.loc[
-    ledger["Current Balance"].notna(),
-    "Status"
-] = "Current"
+ledger["Status"] = np.where(
+    ledger["Outstanding"] <= 0,
+    "Paid",
+    np.where(
+        ledger["Due Date"] < today,
+        "Overdue",
+        "Current"
+    )
+)
 
-ledger.loc[
-    ledger["Overdue Balance"].notna(),
-    "Status"
-] = "Overdue"
+# ----------------------------------------------------------
+# DAYS OVERDUE
+# ----------------------------------------------------------
 
-ledger["Paid Amount"] = ledger["Paid"]
+ledger["Days Overdue"] = np.where(
+    ledger["Status"] == "Overdue",
+    (today - ledger["Due Date"]).dt.days,
+    0
+)
 
-ledger["Outstanding"] = ledger["Balance"]
+ledger["Days Overdue"] = (
+    ledger["Days Overdue"]
+    .fillna(0)
+    .astype(int)
+)
+
+# ----------------------------------------------------------
+# DISPLAY
+# ----------------------------------------------------------
 
 ledger = ledger[
     [
@@ -735,7 +727,7 @@ ledger = ledger[
         "Status",
         "Days Overdue",
         "Total",
-        "Paid Amount",
+        "Paid_Amount",
         "Outstanding"
     ]
 ]
@@ -744,14 +736,13 @@ ledger = ledger.rename(columns={
     "Invoice Number":"Invoice",
     "Payment_Date":"Payment Date",
     "Total":"Amount (£)",
-    "Paid Amount":"Paid (£)",
+    "Paid_Amount":"Paid (£)",
     "Outstanding":"Outstanding (£)"
 })
 
-st.subheader("Invoice Ledger")
-
 st.dataframe(
     ledger,
-    use_container_width=True,
+    width="stretch",
     hide_index=True
 )
+
