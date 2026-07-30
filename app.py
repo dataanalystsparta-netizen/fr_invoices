@@ -812,6 +812,20 @@ if not customer_info.empty:
 
     with c1:
         st.write("**Company**", info.get("Company Name", "-"))
+        customer_name = " ".join(
+            str(info.get(col, "")).strip()
+            for col in ["Salutation", "First Name", "Last Name"]
+            if pd.notna(info.get(col)) and str(info.get(col)).strip()
+        )
+
+        st.write("**Company**", info.get("Company Name", "-"))
+        st.write("**Customer**", customer_name if customer_name else "-")
+        st.write("**Status**", info.get("Status", "-"))
+        st.write("**Customer Since**", pd.to_datetime(info.get("Created Time")).strftime("%d-%m-%Y"))
+
+
+
+        
         st.write("**Customer**", info.get("Contact Name", "-"))
         st.write("**Status**", info.get("Status", "-"))
         st.write("**Customer Since**", info.get("Created Time", "-"))
