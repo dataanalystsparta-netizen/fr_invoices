@@ -739,6 +739,31 @@ ledger = ledger.rename(columns={
     "Paid_Amount":"Paid (£)",
     "Outstanding":"Outstanding (£)"
 })
+
+# ----------------------------------------------------------
+# FORMAT DATES
+# ----------------------------------------------------------
+
+date_columns = [
+    "Invoice Date",
+    "Due Date",
+    "Payment Date"
+]
+
+for col in date_columns:
+    ledger[col] = pd.to_datetime(
+        ledger[col],
+        errors="coerce"
+    ).dt.strftime("%d-%m-%Y")
+
+ledger[date_columns] = ledger[date_columns].fillna("-")
+
+# ----------------------------------------------------------
+# REPLACE ZERO VALUES
+# ----------------------------------------------------------
+
+ledger["Days Overdue"] = ledger["Days Overdue"].replace(0, "-")
+
 # ----------------------------------------------------------
 # ROW COLOURS
 # ----------------------------------------------------------
@@ -756,11 +781,27 @@ def colour_rows(row):
 
     return [colour] * len(row)
 ###################################
+# ----------------------------------------------------------
+# DISPLAY CURRENCY
+# ----------------------------------------------------------
+
+currency_columns = [
+    "Amount (£)",
+    "Paid (£)",
+    "Outstanding (£)"
+]
+
+for col in currency_columns:
+
+    ledger[col] = ledger[col].apply(
+        lambda x: "-" if pd.isna(x) or x == 0 else f"£{x:,.2f}"
+    )
+
+
 ledger_style = (
     ledger.style
     .apply(colour_rows, axis=1)
 )
-
 st.dataframe(
     ledger_style,
     width="stretch",
