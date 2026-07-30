@@ -1008,3 +1008,7 @@ st.dataframe(
     hide_index=True
 )
 ######################################################
+
+
+st.write(len(contacts))
+st.write(customer_info)
