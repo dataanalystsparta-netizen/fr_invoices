@@ -739,9 +739,30 @@ ledger = ledger.rename(columns={
     "Paid_Amount":"Paid (£)",
     "Outstanding":"Outstanding (£)"
 })
+# ----------------------------------------------------------
+# ROW COLOURS
+# ----------------------------------------------------------
+
+def colour_rows(row):
+
+    if row["Status"] == "Paid":
+        colour = "background-color:#d4edda;color:black;"
+
+    elif row["Status"] == "Current":
+        colour = "background-color:#fff3cd;color:black;"
+
+    else:
+        colour = "background-color:#f8d7da;color:black;"
+
+    return [colour] * len(row)
+###################################
+ledger_style = (
+    ledger.style
+    .apply(colour_rows, axis=1)
+)
 
 st.dataframe(
-    ledger,
+    ledger_style,
     width="stretch",
     hide_index=True
 )
