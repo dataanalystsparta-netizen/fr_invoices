@@ -811,7 +811,7 @@ if not customer_info.empty:
     c1, c2 = st.columns(2)
 
     with c1:
-        st.write("**Company**", info.get("Company Name", "-"))
+        #st.write("**Company**", info.get("Company Name", "-"))
         customer_name = " ".join(
             str(info.get(col, "")).strip()
             for col in ["Salutation", "First Name", "Last Name"]
@@ -820,11 +820,11 @@ if not customer_info.empty:
         
         st.write("**Company**", info.get("Company Name", "-"))
         st.write("**Customer**", customer_name if customer_name else "-")
-        st.write("**Status**", info.get("Status", "-"))
+        #st.write("**Status**", info.get("Status", "-"))
         st.write("**Customer Since**", pd.to_datetime(info.get("Created Time")).strftime("%d-%m-%Y"))
         st.write("**Status**", info.get("Status", "-"))
-        st.write("**Customer Since**", pd.to_datetime(info.get("Created Time")).strftime("%d-%m-%Y"))
-        st.write("**Customer**", info.get("Contact Name", "-"))
+        #st.write("**Customer Since**", pd.to_datetime(info.get("Created Time")).strftime("%d-%m-%Y"))
+        #st.write("**Customer**", info.get("Contact Name", "-"))
 
 
     with c2:
