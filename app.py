@@ -27,6 +27,7 @@ INVOICE_FILE = "Invoice_zoho.xlsx"
 PAYMENT_FILE = "Customer_Payment_zoho.xlsx"
 AR_CURRENT_FILE = "AR_current_zoho.xlsx"
 AR_OVERDUE_FILE = "AR_overdue_zoho.xlsx"
+CONTACTS_FILE = "Contacts_zoho.xlsx"
 
 # ----------------------------------------------------------
 # LOAD DATA
@@ -241,6 +242,12 @@ def load_data():
         + ar_overdue["balance"].sum()
     )
 
+    contacts = pd.read_excel(CONTACTS_FILE)
+    contacts.columns = contacts.columns.str.strip()
+
+
+
+    
     return (
         invoices,
         payments,
@@ -250,7 +257,8 @@ def load_data():
         monthly_summary,
         total_customers,
         total_invoiced,
-        total_pending
+        total_pending,
+        contacts
     )
 
 
@@ -263,8 +271,10 @@ def load_data():
     monthly_summary,
     TOTAL_CUSTOMERS,
     TOTAL_INVOICED,
-    TOTAL_PENDING
+    TOTAL_PENDING,
+    contacts
 ) = load_data()
+
 
 
 # ==========================================================
@@ -780,7 +790,9 @@ selected_customer = st.selectbox(
     "Select Customer",
     customer_list
 )
-
+customer_info = contacts[
+    contacts["Display Name"] == selected_customer
+].copy()
 # ----------------------------------------------------------
 # CUSTOMER DATA
 # ----------------------------------------------------------
