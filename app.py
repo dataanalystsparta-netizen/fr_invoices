@@ -404,32 +404,6 @@ st.divider()
 
 st.subheader("Customer Invoice Breakdown")
 
-
-# ----------------------------------------------------------
-# TABLE FILTERS
-# ----------------------------------------------------------
-
-filter_col1, filter_col2 = st.columns([3, 2])
-
-with filter_col1:
-    customer_search = st.text_input(
-        "🔍 Search Customer",
-        placeholder="Type customer name..."
-    )
-
-with filter_col2:
-    sort_by = st.selectbox(
-        "Sort By",
-        [
-            "Revenue ↓",
-            "Revenue ↑",
-            "Customer A-Z",
-            "Customer Z-A"
-        ]
-    )
-
-
-
 # ----------------------------------------------------------
 # CUSTOMER PAYMENT MATRIX
 # ----------------------------------------------------------
@@ -438,16 +412,7 @@ months = sorted(display_df["Month"].unique())
 
 rows = []
 
-customer_list = sorted(display_df["Customer Name"].dropna().unique())
-
-# Apply customer search
-if customer_search:
-    customer_list = [
-        c for c in customer_list
-        if customer_search.lower() in c.lower()
-    ]
-
-for customer in customer_list:
+for customer in sorted(display_df["Customer Name"].unique()):
 
     row = {"Customer Name": customer}
 
@@ -497,52 +462,6 @@ for customer in customer_list:
     rows.append(row)
 
 customer_table = pd.DataFrame(rows)
-
-# ----------------------------------------------------------
-# SORT TABLE
-# ----------------------------------------------------------
-
-# Create numeric revenue column for sorting
-customer_table["_SortRevenue"] = (
-    customer_table["Total"]
-    .str.replace("£", "", regex=False)
-    .str.split("/")
-    .str[-1]
-    .str.replace(",", "", regex=False)
-)
-
-customer_table["_SortRevenue"] = pd.to_numeric(
-    customer_table["_SortRevenue"],
-    errors="coerce"
-).fillna(0)
-
-if sort_by == "Revenue ↓":
-    customer_table = customer_table.sort_values(
-        "_SortRevenue",
-        ascending=False
-    )
-
-elif sort_by == "Revenue ↑":
-    customer_table = customer_table.sort_values(
-        "_SortRevenue",
-        ascending=True
-    )
-
-elif sort_by == "Customer A-Z":
-    customer_table = customer_table.sort_values(
-        "Customer Name"
-    )
-
-elif sort_by == "Customer Z-A":
-    customer_table = customer_table.sort_values(
-        "Customer Name",
-        ascending=False
-    )
-
-customer_table = customer_table.drop(columns="_SortRevenue")
-
-
-
 
 def colour_cells(value):
 
