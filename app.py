@@ -389,11 +389,7 @@ st.dataframe(
 
 st.divider()
 
-# ----------------------------------------------------------
-# CUSTOMER MONTHLY BREAKDOWN
-# ----------------------------------------------------------
 
-st.subheader("Customer Invoice Breakdown")
 
 # ----------------------------------------------------------
 # CUSTOMER PAYMENT MATRIX
@@ -504,7 +500,11 @@ selected_customer = st.selectbox(
     "Select Customer",
     customer_list
 )
+# ----------------------------------------------------------
+# CUSTOMER MONTHLY BREAKDOWN
+# ----------------------------------------------------------
 
+st.subheader("Customer Invoice Breakdown")
 # ----------------------------------------------------------
 # CUSTOMER DATA
 # ----------------------------------------------------------
