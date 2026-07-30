@@ -17,7 +17,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("💰 FastRanking Dashboard")
+st.title("💰 FastRanking Payments Dashboard")
 
 # ----------------------------------------------------------
 # FILES
