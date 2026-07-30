@@ -420,6 +420,122 @@ st.dataframe(
     hide_index=True
 )
 
+# ----------------------------------------------------------
+# RECONCILIATION
+# ----------------------------------------------------------
+
+st.subheader("Invoice vs AR Reconciliation")
+
+# Outstanding invoices from Invoice Register
+invoice_open = invoices[invoices["Balance"] > 0].copy()
+
+invoice_open["Invoice Number"] = (
+    invoice_open["Invoice Number"]
+    .astype(str)
+    .str.strip()
+)
+
+# Invoice numbers present in AR reports
+ar_all = pd.concat([ar_current, ar_overdue], ignore_index=True)
+
+ar_all["transaction_number"] = (
+    ar_all["transaction_number"]
+    .astype(str)
+    .str.strip()
+)
+
+ar_invoice_numbers = set(ar_all["transaction_number"])
+
+# Outstanding invoices missing from AR
+missing_from_ar = invoice_open[
+    ~invoice_open["Invoice Number"].isin(ar_invoice_numbers)
+].copy()
+
+invoice_balance = invoice_open["Balance"].sum()
+ar_balance = (
+    ar_current["balance"].sum()
+    + ar_overdue["balance"].sum()
+)
+difference = invoice_balance - ar_balance
+
+# Summary
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    st.metric(
+        "Invoice Register Outstanding",
+        f"£{invoice_balance:,.2f}"
+    )
+
+with c2:
+    st.metric(
+        "AR Reports Outstanding",
+        f"£{ar_balance:,.2f}"
+    )
+
+with c3:
+    st.metric(
+        "Difference",
+        f"£{difference:,.2f}"
+    )
+
+# Details
+if len(missing_from_ar):
+
+    st.warning(
+        f"{len(missing_from_ar)} outstanding invoice(s) exist in the "
+        "Invoice Register but are not present in the AR reports."
+    )
+
+    reconciliation_table = (
+        missing_from_ar[
+            [
+                "Invoice Number",
+                "Customer Name",
+                "Invoice Date",
+                "Due Date",
+                "Invoice Status",
+                "Balance"
+            ]
+        ]
+        .copy()
+    )
+
+    reconciliation_table["Invoice Date"] = (
+        reconciliation_table["Invoice Date"]
+        .dt.strftime("%d-%m-%Y")
+    )
+
+    reconciliation_table["Due Date"] = (
+        reconciliation_table["Due Date"]
+        .dt.strftime("%d-%m-%Y")
+    )
+
+    reconciliation_table["Balance"] = (
+        reconciliation_table["Balance"]
+        .map(lambda x: f"£{x:,.2f}")
+    )
+
+    st.dataframe(
+        reconciliation_table,
+        width="stretch",
+        hide_index=True
+    )
+
+else:
+
+    st.success(
+        "✅ Invoice Register and AR reports are fully reconciled."
+    )
+
+
+
+
+
+
+
+
+
 st.divider()
 
 # ----------------------------------------------------------
