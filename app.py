@@ -447,7 +447,17 @@ for customer in sorted(display_df["Customer Name"].unique()):
         else:
             row[month] = f"£{paid_value:,.0f} / £{invoice_value:,.0f}"
 
-    row["Total"] = f"£{total_invoice:,.0f}"
+    if total_invoice == 0:
+        row["Total"] = "-"
+    
+    elif total_paid == 0:
+        row["Total"] = f"£0 / £{total_invoice:,.0f}"
+    
+    elif total_paid >= total_invoice:
+        row["Total"] = f"£{total_invoice:,.0f}"
+    
+    else:
+        row["Total"] = f"£{total_paid:,.0f} / £{total_invoice:,.0f}"
 
     rows.append(row)
 
