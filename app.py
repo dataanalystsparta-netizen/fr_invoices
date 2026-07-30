@@ -409,7 +409,7 @@ st.subheader("Customer Invoice Breakdown")
 # TABLE FILTERS
 # ----------------------------------------------------------
 
-filter_col1, filter_col2 = st.columns([3, 1])
+filter_col1, filter_col2 = st.columns([3, 2])
 
 with filter_col1:
     customer_search = st.text_input(
@@ -417,8 +417,16 @@ with filter_col1:
         placeholder="Type customer name..."
     )
 
-
-
+with filter_col2:
+    sort_by = st.selectbox(
+        "Sort By",
+        [
+            "Revenue ↓",
+            "Revenue ↑",
+            "Customer A-Z",
+            "Customer Z-A"
+        ]
+    )
 
 
 
@@ -489,6 +497,52 @@ for customer in customer_list:
     rows.append(row)
 
 customer_table = pd.DataFrame(rows)
+
+# ----------------------------------------------------------
+# SORT TABLE
+# ----------------------------------------------------------
+
+# Create numeric revenue column for sorting
+customer_table["_SortRevenue"] = (
+    customer_table["Total"]
+    .str.replace("£", "", regex=False)
+    .str.split("/")
+    .str[-1]
+    .str.replace(",", "", regex=False)
+)
+
+customer_table["_SortRevenue"] = pd.to_numeric(
+    customer_table["_SortRevenue"],
+    errors="coerce"
+).fillna(0)
+
+if sort_by == "Revenue ↓":
+    customer_table = customer_table.sort_values(
+        "_SortRevenue",
+        ascending=False
+    )
+
+elif sort_by == "Revenue ↑":
+    customer_table = customer_table.sort_values(
+        "_SortRevenue",
+        ascending=True
+    )
+
+elif sort_by == "Customer A-Z":
+    customer_table = customer_table.sort_values(
+        "Customer Name"
+    )
+
+elif sort_by == "Customer Z-A":
+    customer_table = customer_table.sort_values(
+        "Customer Name",
+        ascending=False
+    )
+
+customer_table = customer_table.drop(columns="_SortRevenue")
+
+
+
 
 def colour_cells(value):
 
