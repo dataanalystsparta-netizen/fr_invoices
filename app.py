@@ -483,6 +483,45 @@ def colour_cells(value):
 
     return "background-color:#fff2cc;"
 
+
+
+# ----------------------------------------------------------
+# INVOICE LIST
+# ----------------------------------------------------------
+
+st.subheader("Invoices")
+
+invoice_columns = [
+    "Invoice Number",
+    "Invoice Date",
+    "Due Date",
+    "Invoice Status",
+    "Total",
+    "Balance"
+]
+
+invoice_table = customer_invoices[invoice_columns].copy()
+
+invoice_table = invoice_table.rename(columns={
+    "Invoice Number":"Invoice",
+    "Invoice Date":"Invoice Date",
+    "Due Date":"Due Date",
+    "Invoice Status":"Status",
+    "Total":"Invoice Total (£)",
+    "Balance":"Outstanding (£)"
+})
+
+styled = customer_table.style.map(
+    colour_cells,
+    subset=customer_table.columns[1:]
+)
+
+st.dataframe(
+    styled,
+    use_container_width=True,
+    hide_index=True
+)
+st.divider()
 # ==========================================================
 # PART 3 - CUSTOMER DRILLDOWN
 # ==========================================================
@@ -546,45 +585,6 @@ with k3:
     )
 
 st.divider()
-
-# ----------------------------------------------------------
-# INVOICE LIST
-# ----------------------------------------------------------
-
-st.subheader("Invoices")
-
-invoice_columns = [
-    "Invoice Number",
-    "Invoice Date",
-    "Due Date",
-    "Invoice Status",
-    "Total",
-    "Balance"
-]
-
-invoice_table = customer_invoices[invoice_columns].copy()
-
-invoice_table = invoice_table.rename(columns={
-    "Invoice Number":"Invoice",
-    "Invoice Date":"Invoice Date",
-    "Due Date":"Due Date",
-    "Invoice Status":"Status",
-    "Total":"Invoice Total (£)",
-    "Balance":"Outstanding (£)"
-})
-
-styled = customer_table.style.map(
-    colour_cells,
-    subset=customer_table.columns[1:]
-)
-
-st.dataframe(
-    styled,
-    use_container_width=True,
-    hide_index=True
-)
-st.divider()
-
 # ----------------------------------------------------------
 # PAYMENT HISTORY
 # ----------------------------------------------------------
