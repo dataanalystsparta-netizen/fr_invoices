@@ -879,79 +879,87 @@ st.dataframe(
     width="stretch",
     hide_index=True
 )
+######################################################
+st.subheader("Invoice Number Data Types")
 
-print("Unique Invoice Numbers:", invoices["Invoice Number"].nunique())
-print("Rows:", len(invoices))
-print("Duplicate Invoice Numbers:", invoices["Invoice Number"].duplicated().sum())
-print("Total Invoice Balance:", invoices["Balance"].sum())
-ar_all = pd.concat([ar_current, ar_overdue], ignore_index=True)
+st.write("Invoices:", invoices["Invoice Number"].dtype)
+st.write("Payments:", payments["Invoice Number"].dtype)
+st.write("AR transaction_number:", ar_overdue["transaction_number"].dtype)
+st.subheader("Sample Invoice Numbers")
 
-ar_all = (
-    ar_all.groupby("transaction_number", as_index=False)
-    .agg(
-        AR_Balance=("balance", "sum")
-    )
-)
-invoice_balances = (
-    invoices.groupby("Invoice Number", as_index=False)
-    .agg(
-        Invoice_Balance=("Balance", "sum")
-    )
-)
+st.write("Invoices")
+st.write(invoices["Invoice Number"].head(10))
 
-compare = invoice_balances.merge(
-    ar_all,
-    left_on="Invoice Number",
-    right_on="transaction_number",
-    how="outer"
-)
-compare["Invoice_Balance"] = compare["Invoice_Balance"].fillna(0)
-compare["AR_Balance"] = compare["AR_Balance"].fillna(0)
+st.write("Payments")
+st.write(payments["Invoice Number"].head(10))
 
-compare["Difference"] = (
-    compare["Invoice_Balance"]
-    - compare["AR_Balance"]
-)
-compare[
-    compare["Difference"] != 0
+st.write("AR")
+st.write(ar_overdue["transaction_number"].head(10))
+st.subheader("Counts")
+
+st.write("Invoices:", len(invoices))
+st.write("Unique Invoice Numbers:", invoices["Invoice Number"].nunique())
+
+st.write("Payments:", len(payments))
+st.write("Unique Payment Invoice Numbers:", payments["Invoice Number"].nunique())
+
+st.write("Current AR:", len(ar_current))
+st.write("Overdue AR:", len(ar_overdue))
+
+duplicates = invoices[
+    invoices["Invoice Number"].duplicated(keep=False)
 ]
-compare[
-    compare["AR_Balance"] == 0
-]
-compare[
-    compare["Invoice_Balance"] == 0
-]
-# ----------------------------------------------------------
-# PAYMENT RECONCILIATION
-# ----------------------------------------------------------
 
-check = (
-    invoices[
+st.subheader("Duplicate Invoice Numbers")
+
+st.write("Duplicate rows:", len(duplicates))
+
+st.dataframe(
+    duplicates[
+        ["Invoice Number", "Customer Name", "Total", "Balance"]
+    ],
+    width="stretch",
+    hide_index=True
+)
+
+st.subheader("Invoices Still Outstanding")
+
+st.dataframe(
+    invoices[invoices["Balance"] > 0][
         [
             "Invoice Number",
             "Customer Name",
             "Total",
             "Balance"
         ]
-    ]
-    .merge(
-        payments_per_invoice,
-        on="Invoice Number",
-        how="left"
-    )
+    ],
+    width="stretch",
+    hide_index=True
 )
 
-check["Paid"] = check["Paid"].fillna(0)
+st.subheader("Balance Check")
 
-check["Expected Balance"] = (
-    check["Total"] - check["Paid"]
+st.write(
+    "Invoice Balance:",
+    invoices["Balance"].sum()
 )
 
-check["Difference"] = (
-    check["Expected Balance"]
-    - check["Balance"]
+st.write(
+    "Current AR:",
+    ar_current["balance"].sum()
 )
 
-check = check[
-    abs(check["Difference"]) > 0.01
-]
+st.write(
+    "Overdue AR:",
+    ar_overdue["balance"].sum()
+)
+
+st.write(
+    "AR Total:",
+    ar_current["balance"].sum()
+    + ar_overdue["balance"].sum()
+)
+
+
+
+
