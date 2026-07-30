@@ -405,30 +405,6 @@ st.divider()
 st.subheader("Customer Invoice Breakdown")
 
 
-# ----------------------------------------------------------
-# TABLE FILTERS
-# ----------------------------------------------------------
-
-filter_col1, filter_col2 = st.columns([3, 2])
-
-with filter_col1:
-    customer_search = st.text_input(
-        "🔍 Search Customer",
-        placeholder="Type customer name..."
-    )
-
-with filter_col2:
-    sort_by = st.selectbox(
-        "Sort By",
-        [
-            "Revenue ↓",
-            "Revenue ↑",
-            "Customer A-Z",
-            "Customer Z-A"
-        ]
-    )
-
-
 
 # ----------------------------------------------------------
 # CUSTOMER PAYMENT MATRIX
@@ -438,16 +414,8 @@ months = sorted(display_df["Month"].unique())
 
 rows = []
 
-customer_list = sorted(display_df["Customer Name"].dropna().unique())
+customer_list = sorted(display_df["Customer Name"].unique())
 
-# Apply customer search
-if customer_search:
-    customer_list = [
-        c for c in customer_list
-        if customer_search.lower() in c.lower()
-    ]
-
-for customer in customer_list:
 
     row = {"Customer Name": customer}
 
