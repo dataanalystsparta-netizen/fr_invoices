@@ -407,6 +407,13 @@ st.subheader("Customer Invoice Breakdown")
 # ----------------------------------------------------------
 # CUSTOMER PAYMENT MATRIX
 # ----------------------------------------------------------
+show_outstanding_only = st.checkbox(
+    "Show Outstanding Customers Only",
+    value=False
+)
+###################################################################
+
+
 
 months = sorted(display_df["Month"].unique())
 
@@ -460,6 +467,58 @@ for customer in sorted(display_df["Customer Name"].unique()):
         row["Total"] = f"£{total_paid:,.0f} / £{total_invoice:,.0f}"
 
     rows.append(row)
+
+# ----------------------------------------------------------
+# OUTSTANDING ONLY FILTER
+# ----------------------------------------------------------
+
+if show_outstanding_only:
+
+    def has_outstanding(total_value):
+
+        if total_value == "-":
+            return False
+
+        # Green cells contain only one amount (fully paid)
+        if "/" not in total_value:
+            return False
+
+        paid = float(
+            total_value.split("/")[0]
+            .replace("£", "")
+            .replace(",", "")
+            .strip()
+        )
+
+        invoice = float(
+            total_value.split("/")[1]
+            .replace("£", "")
+            .replace(",", "")
+            .strip()
+        )
+
+        return paid < invoice
+
+    customer_table = customer_table[
+        customer_table["Total"].apply(has_outstanding)
+    ]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 customer_table = pd.DataFrame(rows)
 
