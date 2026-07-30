@@ -791,8 +791,45 @@ selected_customer = st.selectbox(
     customer_list
 )
 customer_info = contacts[
-    contacts["Display Name"] == selected_customer
+    contacts["Display Name"]
+        .astype(str)
+        .str.strip()
+        ==
+    str(selected_customer).strip()
 ].copy()
+
+# ----------------------------------------------------------
+# CUSTOMER INFORMATION
+# ----------------------------------------------------------
+
+if not customer_info.empty:
+
+    info = customer_info.iloc[0]
+
+    st.subheader("Customer Information")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.write("**Company**", info.get("Company Name", "-"))
+        st.write("**Customer**", info.get("Contact Name", "-"))
+        st.write("**Status**", info.get("Status", "-"))
+        st.write("**Customer Since**", info.get("Created Time", "-"))
+
+    with c2:
+        address = ", ".join([
+            str(info.get("Billing Address", "")),
+            str(info.get("Billing City", "")),
+            str(info.get("Billing Code", ""))
+        ])
+
+        st.write("**Address**", address)
+        st.write("**Phone**", info.get("Phone", "-"))
+        st.write("**Mobile**", info.get("MobilePhone", "-"))
+        st.write("**Email**", info.get("EmailID", "-"))
+
+    st.divider()
+
 # ----------------------------------------------------------
 # CUSTOMER DATA
 # ----------------------------------------------------------
