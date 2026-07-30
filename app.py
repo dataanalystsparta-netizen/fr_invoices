@@ -412,78 +412,66 @@ show_outstanding_only = st.checkbox(
     value=False
 )
 ###################################################################
-
-
-
-months = sorted(display_df["Month"].unique())
-
-rows = []
-
-for customer in sorted(display_df["Customer Name"].unique()):
-
-    row = {"Customer Name": customer}
-
-    customer_df = display_df[
-        display_df["Customer Name"] == customer
-    ]
-
-    total_invoice = 0
-    total_paid = 0
-
-    for month in months:
-
-        month_df = customer_df[
-            customer_df["Month"] == month
+@st.cache_data(show_spinner=False)
+def build_customer_matrix(display_df):
+    
+    months = sorted(display_df["Month"].unique())
+    
+    rows = []
+    
+    for customer in sorted(display_df["Customer Name"].unique()):
+    
+        row = {"Customer Name": customer}
+    
+        customer_df = display_df[
+            display_df["Customer Name"] == customer
         ]
-
-        invoice_value = month_df["Total"].sum()
-        paid_value = month_df["Paid"].sum()
-
-        total_invoice += invoice_value
-        total_paid += paid_value
-
-        if invoice_value == 0:
-            row[month] = "-"
-
-        elif paid_value == 0:
-            row[month] = f"£0 / £{invoice_value:,.0f}"
-
-        elif paid_value >= invoice_value:
-            row[month] = f"£{invoice_value:,.0f}"
-
+    
+        total_invoice = 0
+        total_paid = 0
+    
+        for month in months:
+    
+            month_df = customer_df[
+                customer_df["Month"] == month
+            ]
+    
+            invoice_value = month_df["Total"].sum()
+            paid_value = month_df["Paid"].sum()
+    
+            total_invoice += invoice_value
+            total_paid += paid_value
+    
+            if invoice_value == 0:
+                row[month] = "-"
+    
+            elif paid_value == 0:
+                row[month] = f"£0 / £{invoice_value:,.0f}"
+    
+            elif paid_value >= invoice_value:
+                row[month] = f"£{invoice_value:,.0f}"
+    
+            else:
+                row[month] = f"£{paid_value:,.0f} / £{invoice_value:,.0f}"
+    
+        if total_invoice == 0:
+            row["Total"] = "-"
+        
+        elif total_paid == 0:
+            row["Total"] = f"£0 / £{total_invoice:,.0f}"
+        
+        elif total_paid >= total_invoice:
+            row["Total"] = f"£{total_invoice:,.0f}"
+        
         else:
-            row[month] = f"£{paid_value:,.0f} / £{invoice_value:,.0f}"
-
-    if total_invoice == 0:
-        row["Total"] = "-"
+            row["Total"] = f"£{total_paid:,.0f} / £{total_invoice:,.0f}"
     
-    elif total_paid == 0:
-        row["Total"] = f"£0 / £{total_invoice:,.0f}"
+        rows.append(row)
+
+    customer_table = build_customer_matrix(display_df)
     
-    elif total_paid >= total_invoice:
-        row["Total"] = f"£{total_invoice:,.0f}"
     
-    else:
-        row["Total"] = f"£{total_paid:,.0f} / £{total_invoice:,.0f}"
 
-    rows.append(row)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-customer_table = pd.DataFrame(rows)
 
 # ----------------------------------------------------------
 # OUTSTANDING ONLY FILTER
