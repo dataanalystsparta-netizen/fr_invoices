@@ -993,7 +993,16 @@ ar_overdue[
 ]
 
 
-
+invoices.loc[
+    invoices["Invoice Number"] == "242029",
+    [
+        "Invoice Number",
+        "Invoice Date",
+        "Due Date",
+        "Invoice Status",
+        "Balance"
+    ]
+]
 
 
 
