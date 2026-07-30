@@ -960,6 +960,41 @@ st.write(
     + ar_overdue["balance"].sum()
 )
 
+st.dataframe(
+    invoices[
+        invoices["Invoice Number"] == "242029"
+    ][[
+        "Invoice Number",
+        "Customer Name",
+        "Invoice Date",
+        "Due Date",
+        "Invoice Status",
+        "Total",
+        "Balance",
+        "Expected Payment Date",
+        "Last Payment Date"
+    ]],
+    width="stretch",
+    hide_index=True
+)
+st.dataframe(
+    invoices[
+        invoices["Invoice Number"].astype(str).str.contains("242029")
+    ],
+    width="stretch",
+    hide_index=True
+)
+
+ar_current[
+    ar_current["transaction_number"] == 242029
+]
+ar_overdue[
+    ar_overdue["transaction_number"] == 242029
+]
+
+
+
+
 
 
 
