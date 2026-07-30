@@ -549,7 +549,7 @@ def colour_cells(value):
 
 
 
-styled = customer_table.style.map(
+styled = build_customer_matrix.style.map(
     colour_cells,
     subset=customer_table.columns[1:]
 )
