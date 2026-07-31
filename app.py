@@ -323,7 +323,6 @@ display_df = invoices[
     (invoices["Invoice Date"] >= pd.Timestamp(start_date)) &
     (invoices["Invoice Date"] <= pd.Timestamp(end_date))
 ].copy()
-
 # ----------------------------------------------------------
 # RECALCULATE KPIs
 # ----------------------------------------------------------
@@ -334,47 +333,83 @@ total_invoices = display_df["Invoice Number"].nunique()
 
 total_invoiced = display_df["Total"].sum()
 
+total_paid = display_df["Paid"].sum()
+
 # Live AR Snapshot (do not date filter)
+
 current_total = ar_current["balance"].sum()
 overdue_total = ar_overdue["balance"].sum()
 
 total_pending = current_total + overdue_total
+
+# Future invoices (not yet due)
+
+today = pd.Timestamp.today().normalize()
+
+future_due = display_df[
+    (display_df["Balance"] > 0) &
+    (display_df["Due Date"] > today)
+]["Balance"].sum()
+
+# Collection Rate
+
+collection_rate = (
+    (total_paid / total_invoiced) * 100
+    if total_invoiced > 0 else 0
+)
+
 # ----------------------------------------------------------
 # KPI CARDS
 # ----------------------------------------------------------
 
-c1, c2, c3, c4 = st.columns(4)
-
+c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
 with c1:
-
     st.metric(
-        "👥 Total Customers",
+        "👥 Customers",
         f"{total_customers:,}"
     )
 
 with c2:
-
     st.metric(
-        "📄 Total Invoices",
+        "📄 Invoices",
         f"{total_invoices:,}"
     )
 
 with c3:
-
     st.metric(
-        "💷 Total Invoiced",
+        "💷 Invoiced",
         f"£{total_invoiced:,.2f}"
     )
 
 with c4:
-
     st.metric(
-        "⏳ Pending / Due",
-        f"£{total_pending:,.2f}"   
+        "✅ Paid",
+        f"£{total_paid:,.2f}"
     )
 
-st.divider()
+with c5:
+    st.metric(
+        "⏳ Pending",
+        f"£{total_pending:,.2f}"
+    )
 
+with c6:
+    st.metric(
+        "📅 Future Due",
+        f"£{future_due:,.2f}"
+    )
+
+with c7:
+    st.metric(
+        "🔴 Overdue",
+        f"£{overdue_total:,.2f}"
+    )
+
+with c8:
+    st.metric(
+        "📊 Collection",
+        f"{collection_rate:.1f}%"
+    )
 # ----------------------------------------------------------
 # MONTHLY BREAKDOWN
 # ----------------------------------------------------------
