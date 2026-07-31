@@ -18,7 +18,42 @@ st.set_page_config(
 )
 
 st.title("💰 FastRanking Payments Dashboard")
+st.markdown("""
+<style>
 
+.kpi-card{
+    background:#ffffff;
+    border:1px solid #e6e6e6;
+    border-radius:12px;
+    padding:14px;
+    text-align:center;
+    box-shadow:0 1px 6px rgba(0,0,0,0.08);
+    margin-bottom:10px;
+}
+
+.kpi-title{
+    font-size:15px;
+    color:#666666;
+    margin-bottom:8px;
+    font-weight:600;
+}
+
+.kpi-value{
+    font-size:28px;
+    font-weight:700;
+    color:#111111;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+def kpi_card(title, value):
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-title">{title}</div>
+        <div class="kpi-value">{value}</div>
+    </div>
+    """, unsafe_allow_html=True)
 # ----------------------------------------------------------
 # FILES
 # ----------------------------------------------------------
@@ -364,52 +399,28 @@ collection_rate = (
 
 c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
 with c1:
-    st.metric(
-        "👥 Customers",
-        f"{total_customers:,}"
-    )
+    kpi_card("👥 Customers", f"{total_customers:,}")
 
 with c2:
-    st.metric(
-        "📄 Invoices",
-        f"{total_invoices:,}"
-    )
+    kpi_card("📄 Invoices", f"{total_invoices:,}")
 
 with c3:
-    st.metric(
-        "💷 Invoiced",
-        f"£{total_invoiced:,.2f}"
-    )
+    kpi_card("💷 Invoiced", f"£{total_invoiced:,.2f}")
 
 with c4:
-    st.metric(
-        "✅ Paid",
-        f"£{total_paid:,.2f}"
-    )
+    kpi_card("✅ Paid", f"£{total_paid:,.2f}")
 
 with c5:
-    st.metric(
-        "⏳ Pending",
-        f"£{total_pending:,.2f}"
-    )
+    kpi_card("⏳ Pending", f"£{total_pending:,.2f}")
 
 with c6:
-    st.metric(
-        "📅 Future Due",
-        f"£{future_due:,.2f}"
-    )
+    kpi_card("📅 Future Due", f"£{future_due:,.2f}")
 
 with c7:
-    st.metric(
-        "🔴 Overdue",
-        f"£{overdue_total:,.2f}"
-    )
+    kpi_card("🔴 Overdue", f"£{overdue_total:,.2f}")
 
 with c8:
-    st.metric(
-        "📊 Collection",
-        f"{collection_rate:.1f}%"
-    )
+    kpi_card("📊 Collection", f"{collection_rate:.1f}%")
 # ----------------------------------------------------------
 # MONTHLY BREAKDOWN
 # ----------------------------------------------------------
