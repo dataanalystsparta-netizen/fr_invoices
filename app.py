@@ -962,7 +962,10 @@ def colour_rows(row):
     elif row["Status"] == "Current":
         colour = "background-color:#fff3cd;color:black;"
 
-    else:
+    elif row["Status"] == "Partially Paid":
+        colour = "background-color:#ffe599;color:black;"
+
+    else:  # Overdue
         colour = "background-color:#f8d7da;color:black;"
 
     return [colour] * len(row)
