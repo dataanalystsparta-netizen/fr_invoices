@@ -864,25 +864,32 @@ ledger["Paid_Amount"] = ledger[
 # ----------------------------------------------------------
 # STATUS
 # ----------------------------------------------------------
-
 today = pd.Timestamp.today().normalize()
 
-ledger["Status"] = np.where(
-    ledger["Outstanding"] <= 0,
-    "Paid",
-    np.where(
-        ledger["Due Date"] < today,
+ledger["Status"] = np.select(
+    [
+        ledger["Outstanding"] <= 0,
+
+        (ledger["Paid_Amount"] > 0) &
+        (ledger["Outstanding"] > 0),
+
+        (ledger["Due Date"] < today),
+
+        True
+    ],
+    [
+        "Paid",
+        "Partially Paid",
         "Overdue",
         "Current"
-    )
+    ]
 )
-
 # ----------------------------------------------------------
 # DAYS OVERDUE
 # ----------------------------------------------------------
 
 ledger["Days Overdue"] = np.where(
-    ledger["Status"] == "Overdue",
+    ledger["Status"].isin(["Overdue", "Partially Paid"]),
     (today - ledger["Due Date"]).dt.days,
     0
 )
