@@ -320,8 +320,9 @@ today = pd.Timestamp.today().normalize()
 # Outstanding invoices only
 # ----------------------------------------------------------
 
-calling_df = invoices[invoices["Balance"] > 0].copy()
-
+calling_df = collections_df[
+    collections_df["Balance"] > 0
+].copy()
 # Remove duplicate invoices
 
 calling_df = (
