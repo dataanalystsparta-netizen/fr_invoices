@@ -6,6 +6,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import sqlite3
+from datetime import datetime
 
 
 # ----------------------------------------------------------
@@ -61,6 +63,60 @@ def first_non_blank(series):
 
     return values.iloc[0]
 
+
+
+############################################################
+## DB_FUNCS
+############################################################
+DB_FILE = "collections_updates.db"
+
+
+def load_collection_updates():
+
+    conn = sqlite3.connect(DB_FILE)
+
+    query = """
+    SELECT *
+    FROM collection_updates
+    """
+
+    try:
+        df = pd.read_sql(
+            query,
+            conn
+        )
+
+    except:
+
+        df = pd.DataFrame(
+            columns=[
+                "Customer Name",
+                "Disposition",
+                "PTP Date",
+                "Remarks"
+            ]
+        )
+
+    conn.close()
+
+    return df
+
+
+
+def save_collection_updates(df):
+
+    conn = sqlite3.connect(DB_FILE)
+
+    df["Updated At"] = datetime.now()
+
+    df.to_sql(
+        "collection_updates",
+        conn,
+        if_exists="replace",
+        index=False
+    )
+
+    conn.close()
 
 # ==========================================================
 # LOAD AND PREPARE DATA
@@ -644,6 +700,43 @@ customer_table["PTP Date"] = ""
 customer_table["Remarks"] = ""
 
 
+
+################################################################
+saved_updates = load_collection_updates()
+
+
+if not saved_updates.empty:
+
+    customer_table = customer_table.merge(
+        saved_updates,
+        on="Customer Name",
+        how="left",
+        suffixes=("", "_saved")
+    )
+
+
+    for col in [
+        "Disposition",
+        "PTP Date",
+        "Remarks"
+    ]:
+
+        customer_table[col] = (
+            customer_table[f"{col}_saved"]
+            .fillna(customer_table[col])
+        )
+
+
+    customer_table = customer_table.drop(
+        columns=[
+            "Disposition_saved",
+            "PTP Date_saved",
+            "Remarks_saved"
+        ],
+        errors="ignore"
+    )
+
+
 # ----------------------------------------------------------
 # SORT CUSTOMER QUEUE
 # ----------------------------------------------------------
@@ -962,11 +1055,27 @@ st.caption(
     f"{total_invoices:,} unique outstanding invoices"
 )
 
-st.dataframe(
+edited_table = st.data_editor(
+
     display_table,
+
     width="stretch",
+
     hide_index=True,
+
     height=650,
+
+    num_rows="fixed",
+
+    disabled=[
+        col for col in display_table.columns
+        if col not in [
+            "Disposition",
+            "PTP Date",
+            "Remarks"
+        ]
+    ],
+
     column_config={
         "Priority": st.column_config.TextColumn(
             "Priority",
@@ -1034,8 +1143,37 @@ st.dataframe(
         )
     }
 )
+#####################################################################
+
+## save button
+
+#####################################################################
+if st.button(
+    "💾 Save Collection Updates",
+    type="primary"
+):
+
+    save_df = edited_table[
+        [
+            "Customer",
+            "Disposition",
+            "PTP Date",
+            "Remarks"
+        ]
+    ].rename(
+        columns={
+            "Customer":"Customer Name"
+        }
+    )
 
 
+    save_collection_updates(
+        save_df
+    )
+
+    st.success(
+        "Collection updates saved successfully."
+    )
 # ----------------------------------------------------------
 # VALIDATION MESSAGE
 # ----------------------------------------------------------
