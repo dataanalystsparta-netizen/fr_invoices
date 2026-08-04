@@ -1003,14 +1003,23 @@ st.dataframe(
 st.divider()
 st.header("📞 Collections Calling List")
 
-calling_df = customer_invoices.copy()
+calling_df = invoices.copy()
 
 # ----------------------------------------------------------
-# Merge payment information
+# Payment Summary (ALL invoices)
 # ----------------------------------------------------------
+
+payment_summary_all = (
+    payments
+    .groupby("Invoice Number", as_index=False)
+    .agg(
+        Paid_Amount=("Amount Applied to Invoice", "sum"),
+        Payment_Date=("Date", "max")
+    )
+)
 
 calling_df = calling_df.merge(
-    payment_summary,
+    payment_summary_all,
     on="Invoice Number",
     how="left"
 )
@@ -1082,22 +1091,33 @@ calling_df["Total Due"] = (
 )
 
 # ----------------------------------------------------------
-# Contact Details
+# Merge Contact Details
 # ----------------------------------------------------------
 
-phone = "-"
-mobile = "-"
-email = "-"
+contact_cols = [
+    "Display Name",
+    "Phone",
+    "MobilePhone",
+    "EmailID"
+]
 
-if not customer_info.empty:
+calling_df = calling_df.merge(
+    contacts[contact_cols],
+    left_on="Customer Name",
+    right_on="Display Name",
+    how="left"
+)
 
-    phone = customer_info.iloc[0].get("Phone", "-")
-    mobile = customer_info.iloc[0].get("MobilePhone", "-")
-    email = customer_info.iloc[0].get("EmailID", "-")
+calling_df = calling_df.drop(columns="Display Name")
 
-calling_df["Phone"] = phone
-calling_df["Mobile"] = mobile
-calling_df["Email"] = email
+calling_df.rename(columns={
+    "MobilePhone": "Mobile",
+    "EmailID": "Email"
+}, inplace=True)
+
+calling_df["Phone"] = calling_df["Phone"].fillna("")
+calling_df["Mobile"] = calling_df["Mobile"].fillna("")
+calling_df["Email"] = calling_df["Email"].fillna("")
 
 # ----------------------------------------------------------
 # Priority
@@ -1213,15 +1233,21 @@ priority_order = {
 
 calling_df["Sort"] = calling_df["Priority"].map(priority_order)
 
+calling_df["Outstanding_Sort"] = calling_df["Outstanding (£)"].str.replace("£", "", regex=False)
+calling_df["Outstanding_Sort"] = (
+    calling_df["Outstanding_Sort"]
+    .str.replace(",", "", regex=False)
+    .astype(float)
+)
+
 calling_df = (
     calling_df
     .sort_values(
-        ["Sort","Days Overdue","Outstanding (£)"],
-        ascending=[True,False,False]
+        ["Sort", "Days Overdue", "Outstanding_Sort"],
+        ascending=[True, False, False]
     )
-    .drop(columns="Sort")
+    .drop(columns=["Sort", "Outstanding_Sort"])
 )
-
 # ----------------------------------------------------------
 # Display
 # ----------------------------------------------------------
