@@ -38,7 +38,7 @@ CONTACTS_FILE = "Contacts_zoho.xlsx"
 
 GOOGLE_SHEET_ID = "1S3AGF6ISv7O4tQQN016f6jOXqzEJ-kUqw0oa--C5QQo"
 
-WORKSHEET_NAME = "Collections Updates"
+WORKSHEET_NAME = "Updates"
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
