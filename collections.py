@@ -492,4 +492,17 @@ customer_table=customer_table.sort_values(
 # ==========================================================
 # CUSTOMER SUMMARY TABLE
 # ==========================================================
+st.subheader("Collections Queue")
+
+st.dataframe(
+    customer_table,
+    width="stretch",
+    hide_index=True
+)
+with pd.ExcelWriter(output, engine="openpyxl") as writer:
+    customer_table.to_excel(
+        writer,
+        index=False,
+        sheet_name="Collections"
+    )
 
