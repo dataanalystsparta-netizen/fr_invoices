@@ -6,7 +6,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import sqlite3
+import gspread
+from google.oauth2.service_account import Credentials
 from datetime import datetime
 
 
@@ -30,7 +31,19 @@ st.title("📞 FastRanking Collections Dashboard")
 INVOICE_FILE = "Invoice_zoho.xlsx"
 PAYMENT_FILE = "Customer_Payment_zoho.xlsx"
 CONTACTS_FILE = "Contacts_zoho.xlsx"
+# ----------------------------------------------------------
+# GOOGLE SHEETS CONFIGURATION
+# ----------------------------------------------------------
 
+SERVICE_ACCOUNT_FILE = "service_account.json"
+
+GOOGLE_SHEET_ID = "1S3AGF6ISv7O4tQQN016f6jOXqzEJ-kUqw0oa--C5QQo"
+
+WORKSHEET_NAME = "Collections Updates"
+
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets"
+]
 
 # ----------------------------------------------------------
 # HELPER FUNCTIONS
@@ -62,61 +75,109 @@ def first_non_blank(series):
         return ""
 
     return values.iloc[0]
+# ==========================================================
+# GOOGLE SHEETS FUNCTIONS
+# ==========================================================
 
+@st.cache_resource
+def get_worksheet():
+    """
+    Connect to the Google Sheets worksheet.
+    Connection is cached so it is only created once.
+    """
 
+    credentials = Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE,
+        scopes=SCOPES
+    )
 
-############################################################
-## DB_FUNCS
-############################################################
-DB_FILE = "collections_updates.db"
+    client = gspread.authorize(credentials)
+
+    workbook = client.open_by_key(GOOGLE_SHEET_ID)
+
+    worksheet = workbook.worksheet(WORKSHEET_NAME)
+
+    return worksheet
 
 
 def load_collection_updates():
-
-    conn = sqlite3.connect(DB_FILE)
-
-    query = """
-    SELECT *
-    FROM collection_updates
+    """
+    Load saved collection updates from Google Sheets.
     """
 
-    try:
-        df = pd.read_sql(
-            query,
-            conn
-        )
+    worksheet = get_worksheet()
 
-    except:
+    records = worksheet.get_all_records()
 
-        df = pd.DataFrame(
+    if not records:
+
+        return pd.DataFrame(
             columns=[
                 "Customer Name",
                 "Disposition",
                 "PTP Date",
-                "Remarks"
+                "Remarks",
+                "Updated By",
+                "Updated At"
             ]
         )
 
-    conn.close()
+    df = pd.DataFrame(records)
+
+    expected_columns = [
+        "Customer Name",
+        "Disposition",
+        "PTP Date",
+        "Remarks",
+        "Updated By",
+        "Updated At"
+    ]
+
+    for col in expected_columns:
+
+        if col not in df.columns:
+            df[col] = ""
 
     return df
 
 
-
 def save_collection_updates(df):
+    """
+    Save collection updates back to Google Sheets.
+    """
 
-    conn = sqlite3.connect(DB_FILE)
+    worksheet = get_worksheet()
 
-    df["Updated At"] = datetime.now()
+    save_df = df.copy()
 
-    df.to_sql(
-        "collection_updates",
-        conn,
-        if_exists="replace",
-        index=False
+    save_df["Updated By"] = "Collections Dashboard"
+
+    save_df["Updated At"] = datetime.now().strftime(
+        "%d-%m-%Y %H:%M:%S"
     )
 
-    conn.close()
+    worksheet.clear()
+
+    worksheet.update(
+        [save_df.columns.tolist()] +
+        save_df.values.tolist()
+    )
+
+# ----------------------------------------------------------
+# VERIFY GOOGLE SHEETS CONNECTION
+# ----------------------------------------------------------
+
+try:
+
+    worksheet = get_worksheet()
+
+except Exception as e:
+
+    st.error(
+        f"Unable to connect to Google Sheets.\n\n{e}"
+    )
+
+    st.stop()
 
 # ==========================================================
 # LOAD AND PREPARE DATA
