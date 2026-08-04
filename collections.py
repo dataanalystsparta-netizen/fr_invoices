@@ -335,9 +335,7 @@ calling_df = (
 # Days Overdue
 # ----------------------------------------------------------
 
-calling_df["Days Overdue"] = (
-    today - calling_df["Due Date"]
-).dt.days.clip(lower=0)
+calling_df = collections_df.copy()
 
 # ----------------------------------------------------------
 # Merge Contact Details
