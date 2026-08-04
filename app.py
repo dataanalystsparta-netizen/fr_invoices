@@ -996,4 +996,269 @@ st.dataframe(
     hide_index=True
 )
 ######################################################
+# ==========================================================
+# PART 4 - COLLECTIONS CALLING LIST
+# ==========================================================
 
+st.divider()
+st.header("📞 Collections Calling List")
+
+calling_df = customer_invoices.copy()
+
+# ----------------------------------------------------------
+# Merge payment information
+# ----------------------------------------------------------
+
+calling_df = calling_df.merge(
+    payment_summary,
+    on="Invoice Number",
+    how="left"
+)
+
+calling_df["Paid_Amount"] = (
+    calling_df["Paid_Amount"]
+    .fillna(0)
+)
+
+calling_df["Outstanding"] = calling_df["Balance"]
+
+today = pd.Timestamp.today().normalize()
+
+# ----------------------------------------------------------
+# Status
+# ----------------------------------------------------------
+
+calling_df["Status"] = "Current"
+
+calling_df.loc[
+    calling_df["Due Date"] < today,
+    "Status"
+] = "Overdue"
+
+calling_df.loc[
+    (calling_df["Paid_Amount"] > 0) &
+    (calling_df["Outstanding"] > 0),
+    "Status"
+] = "Partially Paid"
+
+calling_df.loc[
+    calling_df["Outstanding"] <= 0,
+    "Status"
+] = "Paid"
+
+# ----------------------------------------------------------
+# Only invoices requiring action
+# ----------------------------------------------------------
+
+calling_df = calling_df[
+    calling_df["Outstanding"] > 0
+].copy()
+
+# ----------------------------------------------------------
+# Days overdue
+# ----------------------------------------------------------
+
+calling_df["Days Overdue"] = (
+    today - calling_df["Due Date"]
+).dt.days
+
+calling_df["Days Overdue"] = (
+    calling_df["Days Overdue"]
+    .clip(lower=0)
+)
+
+# ----------------------------------------------------------
+# Total Due (Customer)
+# ----------------------------------------------------------
+
+total_due = (
+    calling_df.groupby("Customer Name")["Outstanding"]
+    .sum()
+)
+
+calling_df["Total Due"] = (
+    calling_df["Customer Name"]
+    .map(total_due)
+)
+
+# ----------------------------------------------------------
+# Contact Details
+# ----------------------------------------------------------
+
+phone = "-"
+mobile = "-"
+email = "-"
+
+if not customer_info.empty:
+
+    phone = customer_info.iloc[0].get("Phone", "-")
+    mobile = customer_info.iloc[0].get("MobilePhone", "-")
+    email = customer_info.iloc[0].get("EmailID", "-")
+
+calling_df["Phone"] = phone
+calling_df["Mobile"] = mobile
+calling_df["Email"] = email
+
+# ----------------------------------------------------------
+# Priority
+# ----------------------------------------------------------
+
+calling_df["Priority"] = np.select(
+
+    [
+        calling_df["Days Overdue"] >= 90,
+
+        calling_df["Days Overdue"] >= 30,
+
+        calling_df["Status"] == "Partially Paid"
+    ],
+
+    [
+        "🔴 High",
+
+        "🟡 Medium",
+
+        "🟦 Follow Up"
+    ],
+
+    default="🟢 Low"
+
+)
+
+# ----------------------------------------------------------
+# Blank collection fields
+# ----------------------------------------------------------
+
+calling_df["Disposition"] = ""
+calling_df["PTP Date"] = ""
+calling_df["Remarks"] = ""
+
+# ----------------------------------------------------------
+# Select Columns
+# ----------------------------------------------------------
+
+calling_df = calling_df[
+    [
+        "Priority",
+        "Customer Name",
+        "Invoice Number",
+        "Invoice Date",
+        "Due Date",
+        "Status",
+        "Phone",
+        "Mobile",
+        "Email",
+        "Total",
+        "Paid_Amount",
+        "Outstanding",
+        "Total Due",
+        "Days Overdue",
+        "Disposition",
+        "PTP Date",
+        "Remarks"
+    ]
+]
+
+calling_df = calling_df.rename(columns={
+
+    "Customer Name":"Customer",
+
+    "Invoice Number":"Invoice",
+
+    "Total":"Invoice Amount",
+
+    "Paid_Amount":"Paid (£)",
+
+    "Outstanding":"Outstanding (£)"
+
+})
+
+# ----------------------------------------------------------
+# Dates
+# ----------------------------------------------------------
+
+for col in ["Invoice Date","Due Date"]:
+
+    calling_df[col] = pd.to_datetime(
+        calling_df[col]
+    ).dt.strftime("%d-%m-%Y")
+
+# ----------------------------------------------------------
+# Currency
+# ----------------------------------------------------------
+
+currency_cols = [
+    "Invoice Amount",
+    "Paid (£)",
+    "Outstanding (£)",
+    "Total Due"
+]
+
+for col in currency_cols:
+
+    calling_df[col] = calling_df[col].map(
+        lambda x: f"£{x:,.2f}"
+    )
+
+# ----------------------------------------------------------
+# Sort
+# ----------------------------------------------------------
+
+priority_order = {
+    "🔴 High":0,
+    "🟡 Medium":1,
+    "🟦 Follow Up":2,
+    "🟢 Low":3
+}
+
+calling_df["Sort"] = calling_df["Priority"].map(priority_order)
+
+calling_df = (
+    calling_df
+    .sort_values(
+        ["Sort","Days Overdue","Outstanding (£)"],
+        ascending=[True,False,False]
+    )
+    .drop(columns="Sort")
+)
+
+# ----------------------------------------------------------
+# Display
+# ----------------------------------------------------------
+
+st.dataframe(
+    calling_df,
+    use_container_width=True,
+    hide_index=True
+)
+
+# ----------------------------------------------------------
+# Download Excel
+# ----------------------------------------------------------
+
+from io import BytesIO
+
+output = BytesIO()
+
+with pd.ExcelWriter(
+    output,
+    engine="openpyxl"
+) as writer:
+
+    calling_df.to_excel(
+        writer,
+        index=False,
+        sheet_name="Calling List"
+    )
+
+st.download_button(
+
+    "⬇ Download Calling List (Excel)",
+
+    data=output.getvalue(),
+
+    file_name="Collections_Calling_List.xlsx",
+
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+)
