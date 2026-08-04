@@ -1,14 +1,11 @@
 # ==========================================================
 # COLLECTIONS DASHBOARD
-# PART 1 - IMPORTS & DATA PREPARATION
+# PART 1 - IMPORTS, DATA LOADING & KPIs
 # ==========================================================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
-
-from datetime import datetime
-from pathlib import Path
 
 # ----------------------------------------------------------
 # PAGE CONFIG
@@ -20,7 +17,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📞 Collections Dashboard")
+st.title("📞 FastRanking Collections Dashboard")
 
 # ----------------------------------------------------------
 # FILES
@@ -31,29 +28,6 @@ PAYMENT_FILE = "Customer_Payment_zoho.xlsx"
 AR_CURRENT_FILE = "AR_current_zoho.xlsx"
 AR_OVERDUE_FILE = "AR_overdue_zoho.xlsx"
 CONTACTS_FILE = "Contacts_zoho.xlsx"
-
-NOTES_FILE = "Collections_Notes.xlsx"
-
-# ----------------------------------------------------------
-# CREATE NOTES DATABASE
-# ----------------------------------------------------------
-
-if not Path(NOTES_FILE).exists():
-
-    pd.DataFrame(columns=[
-
-        "Invoice Number",
-        "Disposition",
-        "PTP Date",
-        "Next Follow Up",
-        "Assigned To",
-        "Remarks",
-        "Last Updated"
-
-    ]).to_excel(
-        NOTES_FILE,
-        index=False
-    )
 
 # ----------------------------------------------------------
 # LOAD DATA
@@ -66,31 +40,22 @@ def load_data():
     payments = pd.read_excel(PAYMENT_FILE)
     contacts = pd.read_excel(CONTACTS_FILE)
 
-    # -----------------------------
-    # Clean headers
-    # -----------------------------
-
     invoices.columns = invoices.columns.str.strip()
     payments.columns = payments.columns.str.strip()
     contacts.columns = contacts.columns.str.strip()
 
-    # -----------------------------
+    # ------------------------------------------------------
     # Dates
-    # -----------------------------
+    # ------------------------------------------------------
 
-    invoice_dates = [
-
+    for col in [
         "Invoice Date",
         "Due Date",
         "Last Payment Date",
         "Expected Payment Date"
-
-    ]
-
-    for col in invoice_dates:
+    ]:
 
         if col in invoices.columns:
-
             invoices[col] = pd.to_datetime(
                 invoices[col],
                 dayfirst=True,
@@ -98,165 +63,121 @@ def load_data():
             )
 
     if "Date" in payments.columns:
-
         payments["Date"] = pd.to_datetime(
             payments["Date"],
             dayfirst=True,
             errors="coerce"
         )
 
-    # -----------------------------
+    # ------------------------------------------------------
     # Numeric
-    # -----------------------------
+    # ------------------------------------------------------
 
     for col in [
-
         "Total",
         "Balance"
-
     ]:
 
-        invoices[col] = pd.to_numeric(
-            invoices[col],
+        invoices[col] = (
+            pd.to_numeric(
+                invoices[col],
+                errors="coerce"
+            )
+            .fillna(0)
+        )
+
+    payments["Amount Applied to Invoice"] = (
+        pd.to_numeric(
+            payments["Amount Applied to Invoice"],
             errors="coerce"
-        ).fillna(0)
+        )
+        .fillna(0)
+    )
 
-    payments["Amount Applied to Invoice"] = pd.to_numeric(
-
-        payments["Amount Applied to Invoice"],
-        errors="coerce"
-
-    ).fillna(0)
-
-    # -----------------------------
+    # ------------------------------------------------------
     # Remove Draft / Void
-    # -----------------------------
+    # ------------------------------------------------------
 
     invoices = invoices[
         ~invoices["Invoice Status"].isin(
-            ["Draft","Void"]
+            ["Draft", "Void"]
         )
     ].copy()
 
-    # -----------------------------
+    # ------------------------------------------------------
     # Remove duplicate invoices
-    # -----------------------------
+    # ------------------------------------------------------
 
     invoices = (
         invoices
         .sort_values("Invoice Date")
         .drop_duplicates(
-            "Invoice Number",
+            subset="Invoice Number",
             keep="first"
         )
+        .reset_index(drop=True)
     )
 
-    # -----------------------------
+    # ------------------------------------------------------
     # Payment Summary
-    # -----------------------------
+    # ------------------------------------------------------
 
     payment_summary = (
-
         payments
-
         .groupby(
             "Invoice Number",
             as_index=False
         )
-
         .agg(
-
             Paid=("Amount Applied to Invoice","sum"),
-            Last Payment=("Date","max")
-
+            Last_Payment=("Date","max")
         )
-
     )
 
     invoices = invoices.merge(
-
         payment_summary,
-
         on="Invoice Number",
-
         how="left"
-
     )
 
     invoices["Paid"] = invoices["Paid"].fillna(0)
 
-    invoices["Outstanding"] = invoices["Balance"]
+    # ------------------------------------------------------
+    # Outstanding Only
+    # ------------------------------------------------------
 
-    # -----------------------------
-    # Only Outstanding Invoices
-    # -----------------------------
-
-    collections = invoices[
-        invoices["Outstanding"] > 0
+    invoices = invoices[
+        invoices["Balance"] > 0
     ].copy()
 
-    # -----------------------------
-    # Customer Total Due
-    # -----------------------------
-
-    customer_due = (
-
-        collections
-
-        .groupby("Customer Name")["Outstanding"]
-
-        .sum()
-
-    )
-
-    collections["Total Due"] = (
-        collections["Customer Name"]
-        .map(customer_due)
-    )
-
-    # -----------------------------
-    # Days Overdue
-    # -----------------------------
+    # ------------------------------------------------------
+    # Status
+    # ------------------------------------------------------
 
     today = pd.Timestamp.today().normalize()
 
-    collections["Days Overdue"] = (
-
-        today
-
-        - collections["Due Date"]
-
-    ).dt.days
-
-    collections["Days Overdue"] = (
-        collections["Days Overdue"]
-        .clip(lower=0)
-    )
-
-    # -----------------------------
-    # Status
-    # -----------------------------
-
-    collections["Status"] = np.select(
+    invoices["Status"] = np.select(
 
         [
 
-            collections["Outstanding"] <= 0,
+            invoices["Paid"] >= invoices["Total"],
 
             (
-                (collections["Paid"] > 0)
+                (invoices["Paid"] > 0)
                 &
-                (collections["Outstanding"] > 0)
+                (invoices["Balance"] > 0)
             ),
 
-            collections["Due Date"] < today
+            invoices["Due Date"] < today
 
         ],
 
         [
 
             "Paid",
+
             "Partially Paid",
+
             "Overdue"
 
         ],
@@ -265,272 +186,172 @@ def load_data():
 
     )
 
-    # -----------------------------
-    # Priority
-    # -----------------------------
+    # ------------------------------------------------------
+    # Days Overdue
+    # ------------------------------------------------------
 
-    collections["Priority Score"] = 0
+    invoices["Days Overdue"] = np.where(
 
-    collections.loc[
-        collections["Days Overdue"] >= 90,
-        "Priority Score"
-    ] += 100
+        invoices["Due Date"] < today,
 
-    collections.loc[
-        collections["Days Overdue"] >= 60,
-        "Priority Score"
-    ] += 50
+        (today - invoices["Due Date"]).dt.days,
 
-    collections.loc[
-        collections["Days Overdue"] >= 30,
-        "Priority Score"
-    ] += 25
-
-    collections.loc[
-        collections["Status"]=="Partially Paid",
-        "Priority Score"
-    ] += 40
-
-    collections.loc[
-        collections["Outstanding"]>=500,
-        "Priority Score"
-    ] += 30
-
-    # -----------------------------
-    # Priority Text
-    # -----------------------------
-
-    collections["Priority"] = np.select(
-
-        [
-
-            collections["Priority Score"]>=120,
-
-            collections["Priority Score"]>=70,
-
-            collections["Priority Score"]>=30
-
-        ],
-
-        [
-
-            "🔴 High",
-
-            "🟡 Medium",
-
-            "🟢 Low"
-
-        ],
-
-        default="⚪ Monitor"
+        0
 
     )
 
-    # -----------------------------
+    invoices["Days Overdue"] = (
+        invoices["Days Overdue"]
+        .fillna(0)
+        .astype(int)
+    )
+
+    # ------------------------------------------------------
+    # Customer Total Due
+    # ------------------------------------------------------
+
+    customer_due = (
+        invoices.groupby("Customer Name")["Balance"]
+        .sum()
+    )
+
+    invoices["Total Due"] = (
+        invoices["Customer Name"]
+        .map(customer_due)
+    )
+
+    # ------------------------------------------------------
     # Merge Contact Details
-    # -----------------------------
+    # ------------------------------------------------------
 
-    contacts = contacts.rename(columns={
+    contacts["Display Name"] = (
+        contacts["Display Name"]
+        .astype(str)
+        .str.strip()
+    )
 
-        "Display Name":"Customer Name"
+    invoices["Customer Name"] = (
+        invoices["Customer Name"]
+        .astype(str)
+        .str.strip()
+    )
 
-    })
-
-    collections = collections.merge(
+    invoices = invoices.merge(
 
         contacts[
 
             [
-
-                "Customer Name",
-
-                "Company Name",
-
+                "Display Name",
                 "Phone",
-
                 "MobilePhone",
-
                 "EmailID"
-
             ]
 
         ],
 
-        on="Customer Name",
+        left_on="Customer Name",
+
+        right_on="Display Name",
 
         how="left"
 
     )
 
-    # -----------------------------
-    # Sort
-    # -----------------------------
+    # ------------------------------------------------------
+    # Priority
+    # ------------------------------------------------------
 
-    collections = collections.sort_values(
+    invoices["Priority"] = np.select(
 
         [
 
-            "Priority Score",
+            invoices["Days Overdue"] >= 90,
 
-            "Days Overdue",
+            invoices["Days Overdue"] >= 30,
 
-            "Outstanding"
+            invoices["Status"] == "Partially Paid"
 
         ],
 
-        ascending=[False,False,False]
+        [
 
-    ).reset_index(drop=True)
+            "🔴 High",
 
-    return collections, payments
+            "🟡 Medium",
 
-collections, payments = load_data()
+            "🟦 Follow Up"
+
+        ],
+
+        default="🟢 Low"
+
+    )
+
+    return invoices
+
+
+calling_df = load_data()
 
 # ==========================================================
-# PART 2 - KPI DASHBOARD & FILTERS
+# KPIs
 # ==========================================================
 
-st.divider()
+total_customers = calling_df["Customer Name"].nunique()
 
-# ----------------------------------------------------------
-# KPI CALCULATIONS
-# ----------------------------------------------------------
+total_invoices = len(calling_df)
 
-today = pd.Timestamp.today().normalize()
-
-total_customers = collections["Customer Name"].nunique()
-
-total_invoices = len(collections)
-
-total_outstanding = collections["Outstanding"].sum()
-
-overdue_amount = collections.loc[
-    collections["Status"] == "Overdue",
-    "Outstanding"
+current_due = calling_df.loc[
+    calling_df["Status"] == "Current",
+    "Balance"
 ].sum()
 
-future_due = collections.loc[
-    collections["Status"] == "Current",
-    "Outstanding"
+overdue_due = calling_df.loc[
+    calling_df["Status"] == "Overdue",
+    "Balance"
 ].sum()
 
-partial_amount = collections.loc[
-    collections["Status"] == "Partially Paid",
-    "Outstanding"
+partial_due = calling_df.loc[
+    calling_df["Status"] == "Partially Paid",
+    "Balance"
 ].sum()
 
-collection_rate = (
-    (
-        collections["Paid"].sum()
-        /
-        (
-            collections["Paid"].sum()
-            + total_outstanding
-        )
-    ) * 100
-    if (collections["Paid"].sum() + total_outstanding) > 0
-    else 0
-)
+total_due = calling_df["Balance"].sum()
 
-# ----------------------------------------------------------
-# KPI CARDS
-# ----------------------------------------------------------
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 
-k1,k2,k3,k4,k5,k6,k7 = st.columns(7)
-
-with k1:
-    st.metric(
-        "👥 Customers",
-        f"{total_customers:,}"
-    )
-
-with k2:
-    st.metric(
-        "📄 Invoices",
-        f"{total_invoices:,}"
-    )
-
-with k3:
-    st.metric(
-        "💰 Outstanding",
-        f"£{total_outstanding:,.2f}"
-    )
-
-with k4:
-    st.metric(
-        "🔴 Overdue",
-        f"£{overdue_amount:,.2f}"
-    )
-
-with k5:
-    st.metric(
-        "🟡 Future Due",
-        f"£{future_due:,.2f}"
-    )
-
-with k6:
-    st.metric(
-        "🟦 Partial",
-        f"£{partial_amount:,.2f}"
-    )
-
-with k7:
-    st.metric(
-        "✅ Collection %",
-        f"{collection_rate:.1f}%"
-    )
+c1.metric("👥 Customers", f"{total_customers:,}")
+c2.metric("📄 Invoices", f"{total_invoices:,}")
+c3.metric("🟢 Current", f"£{current_due:,.2f}")
+c4.metric("🟡 Partial", f"£{partial_due:,.2f}")
+c5.metric("🔴 Overdue", f"£{overdue_due:,.2f}")
+c6.metric("💰 Total Due", f"£{total_due:,.2f}")
 
 st.divider()
 
 # ==========================================================
-# FILTERS
+# PART 2 - FILTERS & COLLECTION TABLE
 # ==========================================================
 
 st.subheader("Filters")
 
-c1,c2,c3,c4 = st.columns(4)
+f1, f2, f3, f4 = st.columns(4)
 
 # ----------------------------------------------------------
-# SEARCH
+# Customer Search
 # ----------------------------------------------------------
 
-with c1:
+with f1:
 
     search = st.text_input(
-        "🔍 Search Customer / Invoice",
-        ""
+        "Search Customer",
+        placeholder="Customer / Invoice..."
     )
 
 # ----------------------------------------------------------
-# PRIORITY
+# Status
 # ----------------------------------------------------------
 
-with c2:
-
-    priority_filter = st.multiselect(
-
-        "Priority",
-
-        options=[
-            "🔴 High",
-            "🟡 Medium",
-            "🟢 Low",
-            "⚪ Monitor"
-        ],
-
-        default=[
-            "🔴 High",
-            "🟡 Medium",
-            "🟢 Low",
-            "⚪ Monitor"
-        ]
-    )
-
-# ----------------------------------------------------------
-# STATUS
-# ----------------------------------------------------------
-
-with c3:
+with f2:
 
     status_filter = st.multiselect(
 
@@ -547,60 +368,80 @@ with c3:
             "Overdue",
             "Partially Paid"
         ]
+
     )
 
 # ----------------------------------------------------------
-# DAYS OVERDUE
+# Priority
 # ----------------------------------------------------------
 
-with c4:
+with f3:
 
-    overdue_days = st.slider(
+    priority_filter = st.multiselect(
+
+        "Priority",
+
+        options=[
+            "🔴 High",
+            "🟡 Medium",
+            "🟦 Follow Up",
+            "🟢 Low"
+        ],
+
+        default=[
+            "🔴 High",
+            "🟡 Medium",
+            "🟦 Follow Up",
+            "🟢 Low"
+        ]
+
+    )
+
+# ----------------------------------------------------------
+# Minimum Days Overdue
+# ----------------------------------------------------------
+
+with f4:
+
+    min_days = st.number_input(
 
         "Minimum Days Overdue",
 
-        0,
+        min_value=0,
 
-        int(collections["Days Overdue"].max()),
+        value=0,
 
-        0
+        step=30
 
     )
-
-# ==========================================================
-# OUTSTANDING RANGE
-# ==========================================================
-
-amount_filter = st.slider(
-
-    "Outstanding Amount (£)",
-
-    min_value=0,
-
-    max_value=int(collections["Outstanding"].max()),
-
-    value=(0,int(collections["Outstanding"].max()))
-
-)
 
 # ==========================================================
 # APPLY FILTERS
 # ==========================================================
 
-display_df = collections.copy()
+display_df = calling_df.copy()
 
-# Search
+display_df = display_df[
+    display_df["Status"].isin(status_filter)
+]
+
+display_df = display_df[
+    display_df["Priority"].isin(priority_filter)
+]
+
+display_df = display_df[
+    display_df["Days Overdue"] >= min_days
+]
 
 if search:
 
-    s = search.lower()
+    search = search.lower().strip()
 
     display_df = display_df[
 
         display_df["Customer Name"]
-        .astype(str)
         .str.lower()
-        .str.contains(s)
+        .str.contains(search, na=False)
 
         |
 
@@ -610,290 +451,122 @@ if search:
 
     ]
 
-# Priority
+# ==========================================================
+# SORTING
+# ==========================================================
 
-display_df = display_df[
-    display_df["Priority"].isin(priority_filter)
-]
+priority_order = {
 
-# Status
+    "🔴 High":0,
 
-display_df = display_df[
-    display_df["Status"].isin(status_filter)
-]
+    "🟡 Medium":1,
 
-# Days overdue
+    "🟦 Follow Up":2,
 
-display_df = display_df[
-    display_df["Days Overdue"] >= overdue_days
-]
+    "🟢 Low":3
 
-# Outstanding amount
+}
 
-display_df = display_df[
+display_df["Priority Sort"] = (
+    display_df["Priority"]
+    .map(priority_order)
+)
 
-    display_df["Outstanding"].between(
+display_df = (
 
-        amount_filter[0],
+    display_df
 
-        amount_filter[1]
+    .sort_values(
+
+        [
+
+            "Priority Sort",
+
+            "Days Overdue",
+
+            "Balance"
+
+        ],
+
+        ascending=[
+
+            True,
+
+            False,
+
+            False
+
+        ]
 
     )
 
-]
+    .drop(columns="Priority Sort")
 
-st.caption(
-    f"Showing **{len(display_df):,}** invoices across **{display_df['Customer Name'].nunique():,}** customers."
 )
 
-st.divider()
-
 # ==========================================================
-# PART 3 - COLLECTIONS WORK QUEUE
-# ==========================================================
-
-st.header("📋 Collections Work Queue")
-
-# ----------------------------------------------------------
 # DISPLAY TABLE
-# ----------------------------------------------------------
+# ==========================================================
 
-queue = display_df.copy()
+table = display_df[
 
-queue = queue[[
-    "Priority",
-    "Customer Name",
-    "Invoice Number",
-    "Phone",
-    "Outstanding",
-    "Total Due",
-    "Due Date",
-    "Days Overdue",
-    "Status"
-]]
+    [
 
-queue = queue.rename(columns={
+        "Priority",
+
+        "Customer Name",
+
+        "Invoice Number",
+
+        "Phone",
+
+        "MobilePhone",
+
+        "EmailID",
+
+        "Invoice Date",
+
+        "Due Date",
+
+        "Status",
+
+        "Days Overdue",
+
+        "Total",
+
+        "Paid",
+
+        "Balance",
+
+        "Total Due"
+
+    ]
+
+].copy()
+
+table = table.rename(columns={
 
     "Customer Name":"Customer",
 
     "Invoice Number":"Invoice",
 
-    "Outstanding":"Outstanding (£)",
+    "Phone":"Phone",
 
-    "Total Due":"Customer Total (£)"
+    "MobilePhone":"Mobile",
 
-})
-
-# ----------------------------------------------------------
-# FORMAT
-# ----------------------------------------------------------
-
-queue["Due Date"] = (
-    pd.to_datetime(queue["Due Date"])
-    .dt.strftime("%d-%m-%Y")
-)
-
-for col in [
-
-    "Outstanding (£)",
-    "Customer Total (£)"
-
-]:
-
-    queue[col] = queue[col].map(
-        lambda x: f"£{x:,.2f}"
-    )
-
-queue["Days Overdue"] = queue["Days Overdue"].replace(
-    0,
-    "-"
-)
-
-# ----------------------------------------------------------
-# ROW COLOURING
-# ----------------------------------------------------------
-
-def colour_queue(row):
-
-    if row["Status"] == "Overdue":
-
-        return [
-            "background-color:#f8d7da;color:black;"
-        ] * len(row)
-
-    if row["Status"] == "Partially Paid":
-
-        return [
-            "background-color:#fff3cd;color:black;"
-        ] * len(row)
-
-    return [
-        "background-color:#d4edda;color:black;"
-    ] * len(row)
-
-styled_queue = (
-    queue.style
-    .apply(colour_queue, axis=1)
-)
-
-st.dataframe(
-
-    styled_queue,
-
-    use_container_width=True,
-
-    hide_index=True,
-
-    height=650
-
-)
-
-# ==========================================================
-# LIVE SUMMARY
-# ==========================================================
-
-st.divider()
-
-left,right = st.columns([2,1])
-
-with left:
-
-    st.info(
-
-        f"""
-**Current Queue**
-
-• Customers : **{display_df['Customer Name'].nunique():,}**
-
-• Outstanding Invoices : **{len(display_df):,}**
-
-• Total Outstanding : **£{display_df['Outstanding'].sum():,.2f}**
-
-• Average Invoice : **£{display_df['Outstanding'].mean():,.2f}**
-"""
-
-    )
-
-with right:
-
-    st.success(
-
-        f"""
-### Queue Breakdown
-
-🔴 High : {(display_df['Priority']=='🔴 High').sum()}
-
-🟡 Medium : {(display_df['Priority']=='🟡 Medium').sum()}
-
-🟢 Low : {(display_df['Priority']=='🟢 Low').sum()}
-
-⚪ Monitor : {(display_df['Priority']=='⚪ Monitor').sum()}
-"""
-
-    )
-
-st.divider()
-
-# ==========================================================
-# CUSTOMER SELECTOR
-# ==========================================================
-
-customer_list = sorted(
-    display_df["Customer Name"].unique()
-)
-
-selected_customer = st.selectbox(
-
-    "🔍 Open Customer Account",
-
-    customer_list
-
-)
-
-selected_customer_df = display_df[
-    display_df["Customer Name"] == selected_customer
-].copy()
-
-
-# ==========================================================
-# PART 4 - CUSTOMER WORKSPACE
-# ==========================================================
-
-st.header("👤 Customer Workspace")
-
-customer = selected_customer_df.iloc[0]
-
-# ----------------------------------------------------------
-# CUSTOMER INFORMATION
-# ----------------------------------------------------------
-
-c1, c2 = st.columns([2,2])
-
-with c1:
-
-    st.subheader("Customer Information")
-
-    st.write("**Company**", customer.get("Company Name","-"))
-    st.write("**Customer**", customer.get("Customer Name","-"))
-    st.write("**Phone**", customer.get("Phone","-"))
-    st.write("**Mobile**", customer.get("MobilePhone","-"))
-    st.write("**Email**", customer.get("EmailID","-"))
-
-with c2:
-
-    st.subheader("Collections Summary")
-
-    st.metric(
-        "Outstanding",
-        f"£{selected_customer_df['Outstanding'].sum():,.2f}"
-    )
-
-    st.metric(
-        "Invoices",
-        len(selected_customer_df)
-    )
-
-    st.metric(
-        "Oldest Due",
-        f"{selected_customer_df['Days Overdue'].max()} days"
-    )
-
-st.divider()
-
-# ==========================================================
-# OPEN INVOICES
-# ==========================================================
-
-st.subheader("Outstanding Invoices")
-
-ledger = selected_customer_df.copy()
-
-ledger = ledger[[
-    "Invoice Number",
-    "Invoice Date",
-    "Due Date",
-    "Total",
-    "Paid",
-    "Outstanding",
-    "Status",
-    "Priority"
-]]
-
-ledger = ledger.rename(columns={
-
-    "Invoice Number":"Invoice",
+    "EmailID":"Email",
 
     "Total":"Invoice Amount",
 
     "Paid":"Paid (£)",
 
-    "Outstanding":"Outstanding (£)"
+    "Balance":"Outstanding (£)"
 
 })
 
-# ----------------------------------------------------------
-# FORMAT
-# ----------------------------------------------------------
+# ==========================================================
+# FORMAT DATES
+# ==========================================================
 
 for col in [
 
@@ -903,41 +576,53 @@ for col in [
 
 ]:
 
-    ledger[col] = pd.to_datetime(
+    table[col] = pd.to_datetime(
 
-        ledger[col]
+        table[col]
 
     ).dt.strftime("%d-%m-%Y")
 
-for col in [
+# ==========================================================
+# FORMAT CURRENCY
+# ==========================================================
+
+currency_cols = [
 
     "Invoice Amount",
 
     "Paid (£)",
 
-    "Outstanding (£)"
+    "Outstanding (£)",
 
-]:
+    "Total Due"
 
-    ledger[col] = ledger[col].map(
+]
+
+for col in currency_cols:
+
+    table[col] = table[col].map(
 
         lambda x: f"£{x:,.2f}"
 
     )
 
-# ----------------------------------------------------------
-# ROW COLOURING
-# ----------------------------------------------------------
+# ==========================================================
+# ROW COLOURS
+# ==========================================================
 
-def colour_invoice(row):
+def colour_rows(row):
 
-    if row["Status"] == "Overdue":
+    if row["Priority"] == "🔴 High":
 
         colour = "#f8d7da"
 
-    elif row["Status"] == "Partially Paid":
+    elif row["Priority"] == "🟡 Medium":
 
         colour = "#fff3cd"
+
+    elif row["Priority"] == "🟦 Follow Up":
+
+        colour = "#d1ecf1"
 
     else:
 
@@ -945,16 +630,278 @@ def colour_invoice(row):
 
     return [
 
-        f"background-color:{colour};color:black;"
+        f"background-color:{colour}; color:black;"
 
     ] * len(row)
 
+styled_table = (
+
+    table.style
+
+    .apply(
+
+        colour_rows,
+
+        axis=1
+
+    )
+
+)
+
+st.subheader("Outstanding Collections")
+
 st.dataframe(
 
-    ledger.style.apply(
-        colour_invoice,
-        axis=1
-    ),
+    styled_table,
+
+    use_container_width=True,
+
+    hide_index=True,
+
+    height=700
+
+)
+
+# ==========================================================
+# DOWNLOAD
+# ==========================================================
+
+from io import BytesIO
+
+output = BytesIO()
+
+with pd.ExcelWriter(
+
+    output,
+
+    engine="openpyxl"
+
+) as writer:
+
+    table.to_excel(
+
+        writer,
+
+        index=False,
+
+        sheet_name="Collections"
+
+    )
+
+st.download_button(
+
+    "⬇ Download Collections List",
+
+    data=output.getvalue(),
+
+    file_name="Collections_List.xlsx",
+
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+)
+
+# ==========================================================
+# PART 3 - CUSTOMER / INVOICE DETAILS
+# ==========================================================
+
+st.divider()
+
+st.header("📄 Invoice Details")
+
+# ----------------------------------------------------------
+# Select Invoice
+# ----------------------------------------------------------
+
+invoice_list = (
+    display_df["Invoice Number"]
+    .astype(str)
+    .sort_values()
+    .unique()
+)
+
+selected_invoice = st.selectbox(
+
+    "Select Invoice",
+
+    invoice_list
+
+)
+
+invoice = display_df[
+    display_df["Invoice Number"].astype(str)
+    == selected_invoice
+].iloc[0]
+
+# ----------------------------------------------------------
+# Customer Information
+# ----------------------------------------------------------
+
+left, right = st.columns(2)
+
+with left:
+
+    st.subheader("Customer")
+
+    st.write("**Customer**", invoice["Customer Name"])
+
+    st.write("**Phone**",
+             invoice.get("Phone","-"))
+
+    st.write("**Mobile**",
+             invoice.get("MobilePhone","-"))
+
+    st.write("**Email**",
+             invoice.get("EmailID","-"))
+
+with right:
+
+    st.subheader("Invoice")
+
+    st.write("**Invoice**",
+             invoice["Invoice Number"])
+
+    st.write("**Invoice Date**",
+             invoice["Invoice Date"].strftime("%d-%m-%Y"))
+
+    st.write("**Due Date**",
+             invoice["Due Date"].strftime("%d-%m-%Y"))
+
+    st.write("**Status**",
+             invoice["Status"])
+
+st.divider()
+
+# ----------------------------------------------------------
+# Financial Summary
+# ----------------------------------------------------------
+
+k1, k2, k3, k4 = st.columns(4)
+
+with k1:
+
+    st.metric(
+
+        "Invoice Amount",
+
+        f"£{invoice['Total']:,.2f}"
+
+    )
+
+with k2:
+
+    st.metric(
+
+        "Paid",
+
+        f"£{invoice['Paid']:,.2f}"
+
+    )
+
+with k3:
+
+    st.metric(
+
+        "Outstanding",
+
+        f"£{invoice['Balance']:,.2f}"
+
+    )
+
+with k4:
+
+    st.metric(
+
+        "Days Overdue",
+
+        int(invoice["Days Overdue"])
+
+    )
+
+st.divider()
+
+# ----------------------------------------------------------
+# Customer Outstanding Invoices
+# ----------------------------------------------------------
+
+st.subheader("Customer Outstanding Invoices")
+
+customer_invoices = display_df[
+
+    display_df["Customer Name"]
+
+    ==
+
+    invoice["Customer Name"]
+
+].copy()
+
+customer_table = customer_invoices[
+
+    [
+
+        "Invoice Number",
+
+        "Invoice Date",
+
+        "Due Date",
+
+        "Status",
+
+        "Total",
+
+        "Paid",
+
+        "Balance"
+
+    ]
+
+]
+
+customer_table = customer_table.rename(columns={
+
+    "Invoice Number":"Invoice",
+
+    "Total":"Invoice Amount",
+
+    "Paid":"Paid",
+
+    "Balance":"Outstanding"
+
+})
+
+for col in [
+
+    "Invoice Date",
+
+    "Due Date"
+
+]:
+
+    customer_table[col] = pd.to_datetime(
+
+        customer_table[col]
+
+    ).dt.strftime("%d-%m-%Y")
+
+for col in [
+
+    "Invoice Amount",
+
+    "Paid",
+
+    "Outstanding"
+
+]:
+
+    customer_table[col] = customer_table[col].map(
+
+        lambda x: f"£{x:,.2f}"
+
+    )
+
+st.dataframe(
+
+    customer_table,
 
     use_container_width=True,
 
@@ -965,557 +912,12 @@ st.dataframe(
 st.divider()
 
 # ==========================================================
-# PAYMENT HISTORY
+# COLLECTION NOTES (Placeholder)
 # ==========================================================
 
-st.subheader("Payment History")
+st.subheader("📝 Collection Notes")
 
-customer_payments = payments[
-    payments["Customer Name"] == selected_customer
-].copy()
-
-if len(customer_payments):
-
-    payment_display = customer_payments[[
-        "Date",
-        "Invoice Number",
-        "Amount Applied to Invoice"
-    ]].copy()
-
-    payment_display = payment_display.rename(columns={
-
-        "Invoice Number":"Invoice",
-
-        "Amount Applied to Invoice":"Amount Paid"
-
-    })
-
-    payment_display["Date"] = pd.to_datetime(
-        payment_display["Date"]
-    ).dt.strftime("%d-%m-%Y")
-
-    payment_display["Amount Paid"] = payment_display[
-        "Amount Paid"
-    ].map(
-
-        lambda x: f"£{x:,.2f}"
-
-    )
-
-    st.dataframe(
-
-        payment_display,
-
-        use_container_width=True,
-
-        hide_index=True
-
-    )
-
-else:
-
-    st.info("No payments recorded.")
-
-st.divider()
-
-# ==========================================================
-# QUICK ACTIONS
-# ==========================================================
-
-st.subheader("Quick Actions")
-
-b1,b2,b3,b4 = st.columns(4)
-
-with b1:
-
-    st.button(
-        "☎ Called",
-        use_container_width=True
-    )
-
-with b2:
-
-    st.button(
-        "📅 Promise To Pay",
-        use_container_width=True
-    )
-
-with b3:
-
-    st.button(
-        "❌ No Answer",
-        use_container_width=True
-    )
-
-with b4:
-
-    st.button(
-        "📧 Send Reminder",
-        use_container_width=True
-    )
-
-# ==========================================================
-# PART 5 - COLLECTIONS NOTES
-# ==========================================================
-
-st.divider()
-st.header("📝 Collections Notes")
-
-from pathlib import Path
-
-NOTES_FILE = "Collections_Notes.xlsx"
-
-# ----------------------------------------------------------
-# LOAD NOTES
-# ----------------------------------------------------------
-
-if Path(NOTES_FILE).exists():
-
-    notes_db = pd.read_excel(NOTES_FILE)
-
-else:
-
-    notes_db = pd.DataFrame(columns=[
-
-        "Invoice Number",
-        "Disposition",
-        "PTP Date",
-        "Next Follow Up",
-        "Assigned To",
-        "Remarks",
-        "Last Updated"
-
-    ])
-
-# ==========================================================
-# SELECT INVOICE
-# ==========================================================
-
-invoice_list = sorted(
-    selected_customer_df["Invoice Number"].astype(str)
+st.info(
+    "Collection Notes, Disposition, Promise To Pay and "
+    "Call History will be added in Version 2."
 )
-
-selected_invoice = st.selectbox(
-    "Invoice",
-    invoice_list
-)
-
-# ----------------------------------------------------------
-# EXISTING RECORD
-# ----------------------------------------------------------
-
-record = notes_db[
-    notes_db["Invoice Number"].astype(str)
-    ==
-    selected_invoice
-]
-
-if len(record):
-
-    record = record.iloc[0]
-
-    default_disposition = record["Disposition"]
-    default_remarks = record["Remarks"]
-    default_assigned = record["Assigned To"]
-
-    default_ptp = pd.to_datetime(
-        record["PTP Date"],
-        errors="coerce"
-    )
-
-    default_follow = pd.to_datetime(
-        record["Next Follow Up"],
-        errors="coerce"
-    )
-
-else:
-
-    default_disposition = ""
-
-    default_remarks = ""
-
-    default_assigned = ""
-
-    default_ptp = None
-
-    default_follow = None
-
-# ==========================================================
-# INPUTS
-# ==========================================================
-
-left,right = st.columns(2)
-
-with left:
-
-    disposition = st.selectbox(
-
-        "Disposition",
-
-        [
-
-            "",
-
-            "No Answer",
-
-            "Voicemail",
-
-            "Promise To Pay",
-
-            "Part Payment",
-
-            "Paid",
-
-            "Dispute",
-
-            "Wrong Number",
-
-            "Call Back",
-
-            "Escalated"
-
-        ],
-
-        index=0 if default_disposition == "" else
-        [
-
-            "",
-
-            "No Answer",
-
-            "Voicemail",
-
-            "Promise To Pay",
-
-            "Part Payment",
-
-            "Paid",
-
-            "Dispute",
-
-            "Wrong Number",
-
-            "Call Back",
-
-            "Escalated"
-
-        ].index(default_disposition)
-
-        if default_disposition in
-        [
-
-            "",
-
-            "No Answer",
-
-            "Voicemail",
-
-            "Promise To Pay",
-
-            "Part Payment",
-
-            "Paid",
-
-            "Dispute",
-
-            "Wrong Number",
-
-            "Call Back",
-
-            "Escalated"
-
-        ]
-        else 0
-
-    )
-
-    ptp = st.date_input(
-
-        "PTP Date",
-
-        value=default_ptp
-
-    )
-
-    follow = st.date_input(
-
-        "Next Follow Up",
-
-        value=default_follow
-
-    )
-
-with right:
-
-    assigned = st.text_input(
-
-        "Assigned To",
-
-        value=default_assigned
-
-    )
-
-    remarks = st.text_area(
-
-        "Remarks",
-
-        value=default_remarks,
-
-        height=180
-
-    )
-
-# ==========================================================
-# SAVE
-# ==========================================================
-
-if st.button(
-    "💾 Save Collection Notes",
-    use_container_width=True
-):
-
-    new_row = {
-
-        "Invoice Number": selected_invoice,
-
-        "Disposition": disposition,
-
-        "PTP Date": ptp,
-
-        "Next Follow Up": follow,
-
-        "Assigned To": assigned,
-
-        "Remarks": remarks,
-
-        "Last Updated": datetime.now()
-
-    }
-
-    notes_db = notes_db[
-        notes_db["Invoice Number"].astype(str)
-        !=
-        selected_invoice
-    ]
-
-    notes_db = pd.concat(
-
-        [
-
-            notes_db,
-
-            pd.DataFrame([new_row])
-
-        ],
-
-        ignore_index=True
-
-    )
-
-    notes_db.to_excel(
-        NOTES_FILE,
-        index=False
-    )
-
-    st.success("Notes saved successfully.")
-
-    st.cache_data.clear()
-
-# ==========================================================
-# CURRENT NOTES
-# ==========================================================
-
-if len(record):
-
-    st.divider()
-
-    st.subheader("Current Notes")
-
-    st.write("**Disposition:**", record["Disposition"])
-
-    st.write("**PTP Date:**", record["PTP Date"])
-
-    st.write("**Next Follow Up:**", record["Next Follow Up"])
-
-    st.write("**Assigned To:**", record["Assigned To"])
-
-    st.write("**Last Updated:**", record["Last Updated"])
-
-    st.write("**Remarks:**")
-
-    st.info(record["Remarks"])
-
-
-# ==========================================================
-# PART 6 - CALL HISTORY
-# ==========================================================
-
-st.divider()
-st.header("☎ Update Collection Notes")
-
-NOTES_FILE = "collections_notes.xlsx"
-
-# ----------------------------------------------------------
-# Load Existing Notes
-# ----------------------------------------------------------
-
-try:
-
-    notes = pd.read_excel(NOTES_FILE)
-
-except:
-
-    notes = pd.DataFrame(columns=[
-        "Invoice Number",
-        "Disposition",
-        "PTP Date",
-        "Remarks",
-        "Last Updated"
-    ])
-
-# ----------------------------------------------------------
-# Merge Notes
-# ----------------------------------------------------------
-
-calling_df = calling_df.merge(
-
-    notes,
-
-    on="Invoice Number",
-
-    how="left"
-
-)
-
-calling_df["Disposition"] = calling_df["Disposition"].fillna("")
-calling_df["Remarks"] = calling_df["Remarks"].fillna("")
-calling_df["PTP Date"] = calling_df["PTP Date"].fillna("")
-
-# ----------------------------------------------------------
-# Select Invoice
-# ----------------------------------------------------------
-
-invoice_choice = st.selectbox(
-
-    "Select Invoice",
-
-    calling_df["Invoice"].astype(str)
-
-)
-
-selected = calling_df[
-    calling_df["Invoice"].astype(str) == invoice_choice
-].iloc[0]
-
-st.write("---")
-
-c1, c2 = st.columns(2)
-
-with c1:
-
-    st.write("### Customer")
-
-    st.write(selected["Customer"])
-
-    st.write("Outstanding:", selected["Outstanding (£)"])
-
-    st.write("Total Due:", selected["Total Due"])
-
-with c2:
-
-    st.write("### Invoice")
-
-    st.write(selected["Invoice"])
-
-    st.write("Due:", selected["Due Date"])
-
-    st.write("Status:", selected["Status"])
-
-# ----------------------------------------------------------
-# Editable Fields
-# ----------------------------------------------------------
-
-new_disposition = st.selectbox(
-
-    "Disposition",
-
-    [
-
-        "",
-
-        "No Answer",
-
-        "Left Voicemail",
-
-        "Promised To Pay",
-
-        "Paid",
-
-        "Dispute",
-
-        "Wrong Number",
-
-        "Call Back",
-
-        "Escalated"
-
-    ],
-
-    index=0
-
-)
-
-new_ptp = st.date_input(
-
-    "PTP Date",
-
-    value=None
-
-)
-
-new_remarks = st.text_area(
-
-    "Remarks",
-
-    value=str(selected["Remarks"]),
-
-    height=150
-
-)
-
-# ----------------------------------------------------------
-# Save
-# ----------------------------------------------------------
-
-if st.button("💾 Save Notes"):
-
-    notes = notes[
-        notes["Invoice Number"].astype(str)
-        != invoice_choice
-    ]
-
-    notes.loc[len(notes)] = {
-
-        "Invoice Number": invoice_choice,
-
-        "Disposition": new_disposition,
-
-        "PTP Date": str(new_ptp),
-
-        "Remarks": new_remarks,
-
-        "Last Updated": pd.Timestamp.now()
-
-    }
-
-    notes.to_excel(
-
-        NOTES_FILE,
-
-        index=False
-
-    )
-
-    st.success("Notes Saved Successfully!")
-
-    st.rerun()
