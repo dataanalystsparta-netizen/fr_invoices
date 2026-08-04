@@ -1,15 +1,11 @@
 # ==========================================================
-# COLLECTIONS DASHBOARD
-# PART 1 - IMPORTS, DATA LOADING & KPIs
+# COLLECTIONS DASHBOARD V2
+# PART 1 - IMPORTS & DATA LOADING
 # ==========================================================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
-
-# ----------------------------------------------------------
-# PAGE CONFIG
-# ----------------------------------------------------------
 
 st.set_page_config(
     page_title="Collections Dashboard",
@@ -25,13 +21,11 @@ st.title("📞 FastRanking Collections Dashboard")
 
 INVOICE_FILE = "Invoice_zoho.xlsx"
 PAYMENT_FILE = "Customer_Payment_zoho.xlsx"
-AR_CURRENT_FILE = "AR_current_zoho.xlsx"
-AR_OVERDUE_FILE = "AR_overdue_zoho.xlsx"
 CONTACTS_FILE = "Contacts_zoho.xlsx"
 
-# ----------------------------------------------------------
+# ==========================================================
 # LOAD DATA
-# ----------------------------------------------------------
+# ==========================================================
 
 @st.cache_data(show_spinner=False)
 def load_data():
@@ -56,6 +50,7 @@ def load_data():
     ]:
 
         if col in invoices.columns:
+
             invoices[col] = pd.to_datetime(
                 invoices[col],
                 dayfirst=True,
@@ -63,6 +58,7 @@ def load_data():
             )
 
     if "Date" in payments.columns:
+
         payments["Date"] = pd.to_datetime(
             payments["Date"],
             dayfirst=True,
@@ -82,16 +78,14 @@ def load_data():
             pd.to_numeric(
                 invoices[col],
                 errors="coerce"
-            )
-            .fillna(0)
+            ).fillna(0)
         )
 
     payments["Amount Applied to Invoice"] = (
         pd.to_numeric(
             payments["Amount Applied to Invoice"],
             errors="coerce"
-        )
-        .fillna(0)
+        ).fillna(0)
     )
 
     # ------------------------------------------------------
@@ -123,24 +117,44 @@ def load_data():
     # ------------------------------------------------------
 
     payment_summary = (
+
         payments
+
         .groupby(
             "Invoice Number",
             as_index=False
         )
+
         .agg(
-            Paid=("Amount Applied to Invoice","sum"),
-            Last_Payment=("Date","max")
+
+            Paid=(
+                "Amount Applied to Invoice",
+                "sum"
+            ),
+
+            Last_Payment=(
+                "Date",
+                "max"
+            )
+
         )
+
     )
 
     invoices = invoices.merge(
+
         payment_summary,
+
         on="Invoice Number",
+
         how="left"
+
     )
 
-    invoices["Paid"] = invoices["Paid"].fillna(0)
+    invoices["Paid"] = (
+        invoices["Paid"]
+        .fillna(0)
+    )
 
     # ------------------------------------------------------
     # Outstanding Only
@@ -160,8 +174,6 @@ def load_data():
 
         [
 
-            invoices["Paid"] >= invoices["Total"],
-
             (
                 (invoices["Paid"] > 0)
                 &
@@ -173,8 +185,6 @@ def load_data():
         ],
 
         [
-
-            "Paid",
 
             "Partially Paid",
 
@@ -194,7 +204,10 @@ def load_data():
 
         invoices["Due Date"] < today,
 
-        (today - invoices["Due Date"]).dt.days,
+        (
+            today
+            - invoices["Due Date"]
+        ).dt.days,
 
         0
 
@@ -211,29 +224,59 @@ def load_data():
     # ------------------------------------------------------
 
     customer_due = (
-        invoices.groupby("Customer Name")["Balance"]
+
+        invoices
+
+        .groupby("Customer Name")
+
+        ["Balance"]
+
         .sum()
+
     )
 
     invoices["Total Due"] = (
+
         invoices["Customer Name"]
+
         .map(customer_due)
+
+    )
+
+    invoices["Invoice Count"] = (
+
+        invoices
+
+        .groupby("Customer Name")
+
+        ["Invoice Number"]
+
+        .transform("count")
+
     )
 
     # ------------------------------------------------------
-    # Merge Contact Details
+    # Contact Details
     # ------------------------------------------------------
 
     contacts["Display Name"] = (
+
         contacts["Display Name"]
+
         .astype(str)
+
         .str.strip()
+
     )
 
     invoices["Customer Name"] = (
+
         invoices["Customer Name"]
+
         .astype(str)
+
         .str.strip()
+
     )
 
     invoices = invoices.merge(
@@ -241,10 +284,15 @@ def load_data():
         contacts[
 
             [
+
                 "Display Name",
+
                 "Phone",
+
                 "MobilePhone",
+
                 "EmailID"
+
             ]
 
         ],
@@ -257,409 +305,338 @@ def load_data():
 
     )
 
-    # ------------------------------------------------------
-    # Priority
-    # ------------------------------------------------------
-
-    invoices["Priority"] = np.select(
-
-        [
-
-            invoices["Days Overdue"] >= 90,
-
-            invoices["Days Overdue"] >= 30,
-
-            invoices["Status"] == "Partially Paid"
-
-        ],
-
-        [
-
-            "🔴 High",
-
-            "🟡 Medium",
-
-            "🟦 Follow Up"
-
-        ],
-
-        default="🟢 Low"
-
-    )
-
     return invoices
 
 
 calling_df = load_data()
 
 # ==========================================================
-# KPIs
+# CUSTOMER LEVEL COLLECTIONS TABLE
 # ==========================================================
 
-total_customers = calling_df["Customer Name"].nunique()
-
-total_invoices = len(calling_df)
-
-current_due = calling_df.loc[
-    calling_df["Status"] == "Current",
-    "Balance"
-].sum()
-
-overdue_due = calling_df.loc[
-    calling_df["Status"] == "Overdue",
-    "Balance"
-].sum()
-
-partial_due = calling_df.loc[
-    calling_df["Status"] == "Partially Paid",
-    "Balance"
-].sum()
-
-total_due = calling_df["Balance"].sum()
-
-c1, c2, c3, c4, c5, c6 = st.columns(6)
-
-c1.metric("👥 Customers", f"{total_customers:,}")
-c2.metric("📄 Invoices", f"{total_invoices:,}")
-c3.metric("🟢 Current", f"£{current_due:,.2f}")
-c4.metric("🟡 Partial", f"£{partial_due:,.2f}")
-c5.metric("🔴 Overdue", f"£{overdue_due:,.2f}")
-c6.metric("💰 Total Due", f"£{total_due:,.2f}")
-
-st.divider()
-
-# ==========================================================
-# PART 2 - FILTERS & COLLECTION TABLE
-# ==========================================================
-
-st.subheader("Filters")
-
-f1, f2, f3, f4 = st.columns(4)
+today = pd.Timestamp.today().normalize()
 
 # ----------------------------------------------------------
-# Customer Search
+# Outstanding invoices only
 # ----------------------------------------------------------
 
-with f1:
+calling_df = invoices[invoices["Balance"] > 0].copy()
 
-    search = st.text_input(
-        "Search Customer",
-        placeholder="Customer / Invoice..."
+# Remove duplicate invoices
+
+calling_df = (
+    calling_df
+    .sort_values("Invoice Date")
+    .drop_duplicates("Invoice Number")
+)
+
+# ----------------------------------------------------------
+# Days Overdue
+# ----------------------------------------------------------
+
+calling_df["Days Overdue"] = (
+    today - calling_df["Due Date"]
+).dt.days.clip(lower=0)
+
+# ----------------------------------------------------------
+# Merge Contact Details
+# ----------------------------------------------------------
+
+contacts_lookup = contacts.copy()
+
+contacts_lookup["Display Name"] = (
+    contacts_lookup["Display Name"]
+    .astype(str)
+    .str.strip()
+)
+
+calling_df = calling_df.merge(
+
+    contacts_lookup[[
+        "Display Name",
+        "Phone",
+        "MobilePhone",
+        "EmailID"
+    ]],
+
+    left_on="Customer Name",
+
+    right_on="Display Name",
+
+    how="left"
+
+)
+
+calling_df["Phone"] = (
+    calling_df["Phone"]
+    .fillna(calling_df["MobilePhone"])
+)
+
+# ----------------------------------------------------------
+# Customer Summary
+# ----------------------------------------------------------
+
+customer_table = (
+
+    calling_df
+
+    .groupby("Customer Name", as_index=False)
+
+    .agg(
+
+        Phone=("Phone","first"),
+
+        Total_Due=("Balance","sum"),
+
+        Invoice_Count=("Invoice Number","nunique"),
+
+        Oldest_Due=("Due Date","min"),
+
+        Max_Overdue=("Days Overdue","max")
+
     )
 
-# ----------------------------------------------------------
-# Status
-# ----------------------------------------------------------
-
-with f2:
-
-    status_filter = st.multiselect(
-
-        "Status",
-
-        options=[
-            "Current",
-            "Overdue",
-            "Partially Paid"
-        ],
-
-        default=[
-            "Current",
-            "Overdue",
-            "Partially Paid"
-        ]
-
-    )
+)
 
 # ----------------------------------------------------------
 # Priority
 # ----------------------------------------------------------
 
-with f3:
+customer_table["Priority"] = np.select(
 
-    priority_filter = st.multiselect(
+    [
 
-        "Priority",
+        customer_table["Max_Overdue"]>=90,
 
-        options=[
-            "🔴 High",
-            "🟡 Medium",
-            "🟦 Follow Up",
-            "🟢 Low"
-        ],
+        customer_table["Max_Overdue"]>=30
 
-        default=[
-            "🔴 High",
-            "🟡 Medium",
-            "🟦 Follow Up",
-            "🟢 Low"
-        ]
+    ],
 
-    )
+    [
+
+        "🔴 High",
+
+        "🟡 Medium"
+
+    ],
+
+    default="🟢 Low"
+
+)
 
 # ----------------------------------------------------------
-# Minimum Days Overdue
+# Blank Collection Fields
 # ----------------------------------------------------------
 
-with f4:
+customer_table["Disposition"] = ""
 
-    min_days = st.number_input(
+customer_table["PTP Date"] = ""
 
-        "Minimum Days Overdue",
+customer_table["Remarks"] = ""
 
-        min_value=0,
+# ----------------------------------------------------------
+# Formatting
+# ----------------------------------------------------------
 
-        value=0,
+customer_table["Oldest_Due"] = (
 
-        step=30
+    pd.to_datetime(customer_table["Oldest_Due"])
 
-    )
+    .dt.strftime("%d-%m-%Y")
 
-# ==========================================================
-# APPLY FILTERS
-# ==========================================================
+)
 
-display_df = calling_df.copy()
+customer_table["Total Due"] = customer_table["Total_Due"].map(
 
-display_df = display_df[
-    display_df["Status"].isin(status_filter)
-]
+    lambda x:f"£{x:,.2f}"
 
-display_df = display_df[
-    display_df["Priority"].isin(priority_filter)
-]
+)
 
-display_df = display_df[
-    display_df["Days Overdue"] >= min_days
-]
+customer_table.drop(columns="Total_Due", inplace=True)
 
-if search:
+customer_table.rename(
 
-    search = search.lower().strip()
+    columns={
 
-    display_df = display_df[
+        "Customer Name":"Customer",
 
-        display_df["Customer Name"]
-        .str.lower()
-        .str.contains(search, na=False)
+        "Invoice_Count":"Invoices",
 
-        |
+        "Max_Overdue":"Days Overdue"
 
-        display_df["Invoice Number"]
-        .astype(str)
-        .str.contains(search)
+    },
 
-    ]
+    inplace=True
 
-# ==========================================================
-# SORTING
-# ==========================================================
+)
 
-priority_order = {
+priority_order={
 
     "🔴 High":0,
 
     "🟡 Medium":1,
 
-    "🟦 Follow Up":2,
-
-    "🟢 Low":3
+    "🟢 Low":2
 
 }
 
-display_df["Priority Sort"] = (
-    display_df["Priority"]
-    .map(priority_order)
-)
+customer_table["Sort"]=customer_table["Priority"].map(priority_order)
 
-display_df = (
+customer_table=customer_table.sort_values(
 
-    display_df
+    ["Sort","Days Overdue"],
 
-    .sort_values(
+    ascending=[True,False]
 
-        [
+).drop(columns="Sort")
 
-            "Priority Sort",
 
-            "Days Overdue",
+# ==========================================================
+# CUSTOMER SUMMARY TABLE
+# ==========================================================
 
-            "Balance"
+st.subheader("Collections Queue")
 
-        ],
+# ----------------------------------------------------------
+# Build Customer Summary
+# ----------------------------------------------------------
 
-        ascending=[
-
-            True,
-
-            False,
-
-            False
-
-        ]
-
+customer_summary = (
+    collections_df
+    .groupby("Customer Name", as_index=False)
+    .agg(
+        Phone=("Phone", "first"),
+        Mobile=("Mobile", "first"),
+        Email=("Email", "first"),
+        Outstanding=("Outstanding", "sum"),
+        Future_Due=("Future Due", "sum"),
+        Overdue=("Overdue", "sum"),
+        Oldest_Due=("Due Date", "min"),
+        Invoice_Count=("Invoice Number", "nunique"),
+        Last_Invoice=("Invoice Date", "max")
     )
-
-    .drop(columns="Priority Sort")
-
 )
 
-# ==========================================================
-# DISPLAY TABLE
-# ==========================================================
+# ----------------------------------------------------------
+# Days Overdue
+# ----------------------------------------------------------
 
-table = display_df[
+today = pd.Timestamp.today().normalize()
+
+customer_summary["Days Overdue"] = (
+    today - customer_summary["Oldest_Due"]
+).dt.days.clip(lower=0)
+
+# ----------------------------------------------------------
+# Priority
+# ----------------------------------------------------------
+
+customer_summary["Priority"] = np.select(
 
     [
+        customer_summary["Days Overdue"] >= 90,
+        customer_summary["Days Overdue"] >= 60,
+        customer_summary["Days Overdue"] >= 30
+    ],
 
-        "Priority",
+    [
+        "🔴 High",
+        "🟠 Medium",
+        "🟡 Follow Up"
+    ],
 
-        "Customer Name",
+    default="🟢 Current"
 
-        "Invoice Number",
+)
 
-        "Phone",
+# ----------------------------------------------------------
+# Empty Collection Columns
+# ----------------------------------------------------------
 
-        "MobilePhone",
+customer_summary["Disposition"] = ""
+customer_summary["PTP Date"] = ""
+customer_summary["Next Follow Up"] = ""
+customer_summary["Remarks"] = ""
 
-        "EmailID",
+# ----------------------------------------------------------
+# Rename
+# ----------------------------------------------------------
 
-        "Invoice Date",
-
-        "Due Date",
-
-        "Status",
-
-        "Days Overdue",
-
-        "Total",
-
-        "Paid",
-
-        "Balance",
-
-        "Total Due"
-
-    ]
-
-].copy()
-
-table = table.rename(columns={
+customer_summary = customer_summary.rename(columns={
 
     "Customer Name":"Customer",
 
-    "Invoice Number":"Invoice",
+    "Outstanding":"Total Due (£)",
 
-    "Phone":"Phone",
+    "Future_Due":"Future Due (£)",
 
-    "MobilePhone":"Mobile",
+    "Overdue":"Overdue (£)",
 
-    "EmailID":"Email",
-
-    "Total":"Invoice Amount",
-
-    "Paid":"Paid (£)",
-
-    "Balance":"Outstanding (£)"
+    "Invoice_Count":"Invoices"
 
 })
 
-# ==========================================================
-# FORMAT DATES
-# ==========================================================
+# ----------------------------------------------------------
+# Dates
+# ----------------------------------------------------------
 
-for col in [
+customer_summary["Oldest_Due"] = pd.to_datetime(
+    customer_summary["Oldest_Due"]
+).dt.strftime("%d-%m-%Y")
 
-    "Invoice Date",
+customer_summary["Last_Invoice"] = pd.to_datetime(
+    customer_summary["Last_Invoice"]
+).dt.strftime("%d-%m-%Y")
 
-    "Due Date"
-
-]:
-
-    table[col] = pd.to_datetime(
-
-        table[col]
-
-    ).dt.strftime("%d-%m-%Y")
-
-# ==========================================================
-# FORMAT CURRENCY
-# ==========================================================
+# ----------------------------------------------------------
+# Currency
+# ----------------------------------------------------------
 
 currency_cols = [
-
-    "Invoice Amount",
-
-    "Paid (£)",
-
-    "Outstanding (£)",
-
-    "Total Due"
-
+    "Total Due (£)",
+    "Future Due (£)",
+    "Overdue (£)"
 ]
 
 for col in currency_cols:
 
-    table[col] = table[col].map(
-
+    customer_summary[col] = customer_summary[col].map(
         lambda x: f"£{x:,.2f}"
-
     )
 
-# ==========================================================
-# ROW COLOURS
-# ==========================================================
+# ----------------------------------------------------------
+# Sort
+# ----------------------------------------------------------
 
-def colour_rows(row):
+priority_order = {
+    "🔴 High":0,
+    "🟠 Medium":1,
+    "🟡 Follow Up":2,
+    "🟢 Current":3
+}
 
-    if row["Priority"] == "🔴 High":
-
-        colour = "#f8d7da"
-
-    elif row["Priority"] == "🟡 Medium":
-
-        colour = "#fff3cd"
-
-    elif row["Priority"] == "🟦 Follow Up":
-
-        colour = "#d1ecf1"
-
-    else:
-
-        colour = "#d4edda"
-
-    return [
-
-        f"background-color:{colour}; color:black;"
-
-    ] * len(row)
-
-styled_table = (
-
-    table.style
-
-    .apply(
-
-        colour_rows,
-
-        axis=1
-
-    )
-
+customer_summary["Sort"] = (
+    customer_summary["Priority"]
+    .map(priority_order)
 )
 
-st.subheader("Outstanding Collections")
+customer_summary = (
+    customer_summary
+    .sort_values(
+        ["Sort","Days Overdue"],
+        ascending=[True,False]
+    )
+    .drop(columns="Sort")
+)
+
+# ----------------------------------------------------------
+# Display
+# ----------------------------------------------------------
 
 st.dataframe(
-
-    styled_table,
-
+    customer_summary,
     use_container_width=True,
-
-    hide_index=True,
-
-    height=700
-
+    hide_index=True
 )
 
 # ==========================================================
@@ -671,253 +648,24 @@ from io import BytesIO
 output = BytesIO()
 
 with pd.ExcelWriter(
-
     output,
-
     engine="openpyxl"
-
 ) as writer:
 
-    table.to_excel(
-
+    customer_summary.to_excel(
         writer,
-
         index=False,
-
         sheet_name="Collections"
-
     )
 
 st.download_button(
 
-    "⬇ Download Collections List",
+    "⬇ Download Collections Queue",
 
     data=output.getvalue(),
 
-    file_name="Collections_List.xlsx",
+    file_name="Collections_Queue.xlsx",
 
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
-)
-
-# ==========================================================
-# PART 3 - CUSTOMER / INVOICE DETAILS
-# ==========================================================
-
-st.divider()
-
-st.header("📄 Invoice Details")
-
-# ----------------------------------------------------------
-# Select Invoice
-# ----------------------------------------------------------
-
-invoice_list = (
-    display_df["Invoice Number"]
-    .astype(str)
-    .sort_values()
-    .unique()
-)
-
-selected_invoice = st.selectbox(
-
-    "Select Invoice",
-
-    invoice_list
-
-)
-
-invoice = display_df[
-    display_df["Invoice Number"].astype(str)
-    == selected_invoice
-].iloc[0]
-
-# ----------------------------------------------------------
-# Customer Information
-# ----------------------------------------------------------
-
-left, right = st.columns(2)
-
-with left:
-
-    st.subheader("Customer")
-
-    st.write("**Customer**", invoice["Customer Name"])
-
-    st.write("**Phone**",
-             invoice.get("Phone","-"))
-
-    st.write("**Mobile**",
-             invoice.get("MobilePhone","-"))
-
-    st.write("**Email**",
-             invoice.get("EmailID","-"))
-
-with right:
-
-    st.subheader("Invoice")
-
-    st.write("**Invoice**",
-             invoice["Invoice Number"])
-
-    st.write("**Invoice Date**",
-             invoice["Invoice Date"].strftime("%d-%m-%Y"))
-
-    st.write("**Due Date**",
-             invoice["Due Date"].strftime("%d-%m-%Y"))
-
-    st.write("**Status**",
-             invoice["Status"])
-
-st.divider()
-
-# ----------------------------------------------------------
-# Financial Summary
-# ----------------------------------------------------------
-
-k1, k2, k3, k4 = st.columns(4)
-
-with k1:
-
-    st.metric(
-
-        "Invoice Amount",
-
-        f"£{invoice['Total']:,.2f}"
-
-    )
-
-with k2:
-
-    st.metric(
-
-        "Paid",
-
-        f"£{invoice['Paid']:,.2f}"
-
-    )
-
-with k3:
-
-    st.metric(
-
-        "Outstanding",
-
-        f"£{invoice['Balance']:,.2f}"
-
-    )
-
-with k4:
-
-    st.metric(
-
-        "Days Overdue",
-
-        int(invoice["Days Overdue"])
-
-    )
-
-st.divider()
-
-# ----------------------------------------------------------
-# Customer Outstanding Invoices
-# ----------------------------------------------------------
-
-st.subheader("Customer Outstanding Invoices")
-
-customer_invoices = display_df[
-
-    display_df["Customer Name"]
-
-    ==
-
-    invoice["Customer Name"]
-
-].copy()
-
-customer_table = customer_invoices[
-
-    [
-
-        "Invoice Number",
-
-        "Invoice Date",
-
-        "Due Date",
-
-        "Status",
-
-        "Total",
-
-        "Paid",
-
-        "Balance"
-
-    ]
-
-]
-
-customer_table = customer_table.rename(columns={
-
-    "Invoice Number":"Invoice",
-
-    "Total":"Invoice Amount",
-
-    "Paid":"Paid",
-
-    "Balance":"Outstanding"
-
-})
-
-for col in [
-
-    "Invoice Date",
-
-    "Due Date"
-
-]:
-
-    customer_table[col] = pd.to_datetime(
-
-        customer_table[col]
-
-    ).dt.strftime("%d-%m-%Y")
-
-for col in [
-
-    "Invoice Amount",
-
-    "Paid",
-
-    "Outstanding"
-
-]:
-
-    customer_table[col] = customer_table[col].map(
-
-        lambda x: f"£{x:,.2f}"
-
-    )
-
-st.dataframe(
-
-    customer_table,
-
-    use_container_width=True,
-
-    hide_index=True
-
-)
-
-st.divider()
-
-# ==========================================================
-# COLLECTION NOTES (Placeholder)
-# ==========================================================
-
-st.subheader("📝 Collection Notes")
-
-st.info(
-    "Collection Notes, Disposition, Promise To Pay and "
-    "Call History will be added in Version 2."
 )
