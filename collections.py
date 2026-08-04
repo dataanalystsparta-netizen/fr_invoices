@@ -35,16 +35,15 @@ CONTACTS_FILE = "Contacts_zoho.xlsx"
 # GOOGLE SHEETS CONFIGURATION
 # ----------------------------------------------------------
 
-SERVICE_ACCOUNT_FILE = "service_account.json"
 
 GOOGLE_SHEET_ID = "1S3AGF6ISv7O4tQQN016f6jOXqzEJ-kUqw0oa--C5QQo"
 
 WORKSHEET_NAME = "Collections Updates"
 
 SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets"
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
 ]
-
 # ----------------------------------------------------------
 # HELPER FUNCTIONS
 # ----------------------------------------------------------
@@ -82,23 +81,25 @@ def first_non_blank(series):
 @st.cache_resource
 def get_worksheet():
     """
-    Connect to the Google Sheets worksheet.
-    Connection is cached so it is only created once.
+    Connect to Google Sheets using Streamlit Secrets.
     """
 
-    credentials = Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE,
+    credentials = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
         scopes=SCOPES
     )
 
     client = gspread.authorize(credentials)
 
-    workbook = client.open_by_key(GOOGLE_SHEET_ID)
+    workbook = client.open_by_key(
+        GOOGLE_SHEET_ID
+    )
 
-    worksheet = workbook.worksheet(WORKSHEET_NAME)
+    worksheet = workbook.worksheet(
+        WORKSHEET_NAME
+    )
 
     return worksheet
-
 
 def load_collection_updates():
     """
