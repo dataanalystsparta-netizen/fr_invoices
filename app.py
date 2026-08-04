@@ -1152,7 +1152,19 @@ calling_df["Priority"] = np.select(
 calling_df["Disposition"] = ""
 calling_df["PTP Date"] = ""
 calling_df["Remarks"] = ""
+# ----------------------------------------------------------
+# Remove Duplicate Invoice Numbers
+# ----------------------------------------------------------
 
+calling_df = (
+    calling_df
+    .sort_values("Invoice Date")
+    .drop_duplicates(
+        subset="Invoice Number",
+        keep="first"
+    )
+    .reset_index(drop=True)
+)
 # ----------------------------------------------------------
 # Select Columns
 # ----------------------------------------------------------
