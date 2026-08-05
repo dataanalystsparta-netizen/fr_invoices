@@ -101,6 +101,8 @@ def get_worksheet():
 
     return worksheet
 
+
+@st.cache_data(ttl=30)
 def load_collection_updates():
     """
     Load saved collection updates from Google Sheets.
@@ -161,8 +163,9 @@ def save_collection_updates(df):
 
     worksheet.update(
         [save_df.columns.tolist()] +
-        save_df.values.tolist()
+        save_df.astype(str).fillna("").values.tolist()
     )
+    load_collection_updates.clear()
 
 # ----------------------------------------------------------
 # VERIFY GOOGLE SHEETS CONNECTION
@@ -602,6 +605,19 @@ def load_data():
 # ----------------------------------------------------------
 
 calling_df = load_data()
+
+# ==========================================================
+# SESSION STATE
+# ==========================================================
+
+if "selected_customer" not in st.session_state:
+    st.session_state.selected_customer = None
+
+if "refresh_required" not in st.session_state:
+    st.session_state.refresh_required = False
+
+
+
 # ==========================================================
 # FASTRANKING COLLECTIONS DASHBOARD
 # PART 1B - CUSTOMER SUMMARY & KPI CALCULATIONS
@@ -764,7 +780,15 @@ customer_table["Remarks"] = ""
 
 
 ################################################################
-saved_updates = load_collection_updates()
+# ==========================================================
+# LOAD COLLECTION UPDATES ONLY ONCE
+# ==========================================================
+
+if "saved_updates" not in st.session_state:
+
+    st.session_state.saved_updates = load_collection_updates()
+
+saved_updates = st.session_state.saved_updates
 
 
 if not saved_updates.empty:
@@ -776,29 +800,28 @@ if not saved_updates.empty:
         suffixes=("", "_saved")
     )
 
-
     for col in [
         "Disposition",
         "PTP Date",
         "Remarks"
     ]:
 
-        customer_table[col] = (
-            customer_table[f"{col}_saved"]
-            .fillna(customer_table[col])
-        )
+        if f"{col}_saved" in customer_table.columns:
 
+            customer_table[col] = (
+                customer_table[f"{col}_saved"]
+                .fillna(customer_table[col])
+            )
 
-    customer_table = customer_table.drop(
+    customer_table.drop(
         columns=[
             "Disposition_saved",
             "PTP Date_saved",
             "Remarks_saved"
         ],
+        inplace=True,
         errors="ignore"
     )
-
-
 # ----------------------------------------------------------
 # SORT CUSTOMER QUEUE
 # ----------------------------------------------------------
@@ -996,9 +1019,15 @@ st.markdown("<br>", unsafe_allow_html=True)
 # PREPARE DISPLAY TABLE
 # ==========================================================
 
-display_table = customer_table.copy()
+# ==========================================================
+# KEEP DISPLAY TABLE IN SESSION
+# ==========================================================
 
+if "display_table" not in st.session_state:
 
+    st.session_state.display_table = customer_table.copy()
+
+display_table = st.session_state.display_table.copy()
 # ----------------------------------------------------------
 # CLEAN CONTACT VALUES
 # ----------------------------------------------------------
@@ -1104,7 +1133,8 @@ display_table = display_table[
         "Remarks"
     ]
 ]
-
+# Keep latest display table in memory
+st.session_state.display_table = display_table.copy()
 
 # ==========================================================
 # DISPLAY COLLECTIONS QUEUE
@@ -1121,8 +1151,9 @@ edited_table = st.data_editor(
 
     display_table,
 
-    width="stretch",
+    key="collections_editor",
 
+    width="stretch",
     hide_index=True,
 
     height=650,
@@ -1229,10 +1260,15 @@ if st.button(
     )
 
 
-    save_collection_updates(
-        save_df
-    )
-
+    # Keep the in-memory copy updated
+# Update display table in memory immediately
+    st.session_state.display_table = edited_table.copy()
+    
+    # Update saved values in memory
+    st.session_state.saved_updates = save_df.copy()
+    # Backup to Google Sheets
+    save_collection_updates(save_df)
+    
     st.success(
         "Collection updates saved successfully."
     )
