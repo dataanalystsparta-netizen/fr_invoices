@@ -113,7 +113,7 @@ def check_login():
 
         users = st.secrets.get("users", {})
 
-        if email in users and password == users[email]:
+        if (email in users and password == users[email].get("password",""):
 
             st.session_state.authenticated = True
             st.session_state.logged_in_email = email
