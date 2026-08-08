@@ -1331,6 +1331,142 @@ if show_outstanding_only:
         )
     ]
 
+
+# ==========================================================
+# GRAND TOTAL ROW
+# ==========================================================
+
+# Determine which customers are currently visible
+# after the Outstanding Only filter
+visible_customers = customer_table["Customer Name"].tolist()
+
+grand_total_df = display_df[
+    display_df["Customer Name"].isin(visible_customers)
+].copy()
+
+# ----------------------------------------------------------
+# CREATE GRAND TOTAL ROW
+# ----------------------------------------------------------
+
+grand_row = {
+    "Customer Name": "GRAND TOTAL"
+}
+
+grand_total_invoice = grand_total_df["Total"].sum()
+grand_total_paid = grand_total_df["Paid"].sum()
+
+# ----------------------------------------------------------
+# MONTHLY GRAND TOTALS
+# ----------------------------------------------------------
+
+for month in months:
+
+    month_df = grand_total_df[
+        grand_total_df["Month"] == month
+    ]
+
+    month_invoice = month_df["Total"].sum()
+    month_paid = month_df["Paid"].sum()
+
+    if IS_FINANCIAL:
+
+        if month_invoice == 0:
+
+            grand_row[month] = "-"
+
+        elif month_paid == 0:
+
+            grand_row[month] = (
+                f"£0 / £{month_invoice:,.0f}"
+            )
+
+        elif month_paid >= month_invoice:
+
+            grand_row[month] = (
+                f"£{month_invoice:,.0f}"
+            )
+
+        else:
+
+            grand_row[month] = (
+                f"£{month_paid:,.0f} / "
+                f"£{month_invoice:,.0f}"
+            )
+
+    else:
+
+        if month_invoice == 0:
+
+            grand_row[month] = "-"
+
+        else:
+
+            month_paid_pct = (
+                month_paid / month_invoice
+            ) * 100
+
+            grand_row[month] = (
+                f"{month_paid_pct:.1f}%"
+            )
+
+# ----------------------------------------------------------
+# GRAND TOTAL COLUMN
+# ----------------------------------------------------------
+
+if IS_FINANCIAL:
+
+    if grand_total_invoice == 0:
+
+        grand_row["Total"] = "-"
+
+    elif grand_total_paid == 0:
+
+        grand_row["Total"] = (
+            f"£0 / £{grand_total_invoice:,.0f}"
+        )
+
+    elif grand_total_paid >= grand_total_invoice:
+
+        grand_row["Total"] = (
+            f"£{grand_total_invoice:,.0f}"
+        )
+
+    else:
+
+        grand_row["Total"] = (
+            f"£{grand_total_paid:,.0f} / "
+            f"£{grand_total_invoice:,.0f}"
+        )
+
+else:
+
+    if grand_total_invoice == 0:
+
+        grand_row["Total"] = "-"
+
+    else:
+
+        grand_total_paid_pct = (
+            grand_total_paid
+            / grand_total_invoice
+        ) * 100
+
+        grand_row["Total"] = (
+            f"{grand_total_paid_pct:.1f}%"
+        )
+
+# ----------------------------------------------------------
+# APPEND GRAND TOTAL
+# ----------------------------------------------------------
+
+customer_table = pd.concat(
+    [
+        customer_table,
+        pd.DataFrame([grand_row])
+    ],
+    ignore_index=True
+)
+
 # ==========================================================
 # CUSTOMER TABLE COLOURS
 # ==========================================================
@@ -1395,11 +1531,38 @@ def colour_cells(value):
         return "background-color:#fff2cc;"
 
 
+# ----------------------------------------------------------
+# STYLE CUSTOMER TABLE
+# ----------------------------------------------------------
 
 styled = customer_table.style.map(
     colour_cells,
     subset=customer_table.columns[1:]
 )
+
+# ----------------------------------------------------------
+# HIGHLIGHT GRAND TOTAL ROW
+# ----------------------------------------------------------
+
+def highlight_grand_total(row):
+
+    if row["Customer Name"] == "GRAND TOTAL":
+
+        return [
+            "font-weight:bold; background-color:#e6e6e6;"
+        ] * len(row)
+
+    return [""] * len(row)
+
+
+styled = styled.apply(
+    highlight_grand_total,
+    axis=1
+)
+
+# ----------------------------------------------------------
+# DISPLAY
+# ----------------------------------------------------------
 
 st.dataframe(
     styled,
