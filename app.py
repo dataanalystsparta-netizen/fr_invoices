@@ -617,13 +617,17 @@ def load_data():
 # ==========================================================
 # PART 2 - KPI DASHBOARD & CUSTOMER TABLE
 # ==========================================================
+# ==========================================================
+# PART 2 - FILTERS
+# ==========================================================
+
+st.subheader("Filters")
+
 # ----------------------------------------------------------
 # DATE FILTERS
 # ----------------------------------------------------------
 
-st.subheader("Filters")
-
-f1, f2 = st.columns(2)
+f1, f2, f3 = st.columns(3)
 
 from datetime import date
 
@@ -652,14 +656,44 @@ with f2:
         min_value=min_date,
         max_value=max_date
     )
+
 # ----------------------------------------------------------
-# FILTER DATA
+# SERVICE CATEGORY FILTER
 # ----------------------------------------------------------
+
+with f3:
+
+    service_options = [
+        "All Services",
+        "SEO",
+        "Web Development"
+    ]
+
+    selected_service = st.selectbox(
+        "Service Type",
+        service_options
+    )
+
+
+# ==========================================================
+# APPLY FILTERS
+# ==========================================================
 
 display_df = invoices[
     (invoices["Invoice Date"] >= pd.Timestamp(start_date)) &
     (invoices["Invoice Date"] <= pd.Timestamp(end_date))
 ].copy()
+
+
+# ----------------------------------------------------------
+# SERVICE FILTER
+# ----------------------------------------------------------
+
+if selected_service != "All Services":
+
+    display_df = display_df[
+        display_df["Service Category"] == selected_service
+    ].copy()
 # ----------------------------------------------------------
 # RECALCULATE KPIs
 # ----------------------------------------------------------
