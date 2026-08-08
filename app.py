@@ -17,6 +17,150 @@ st.set_page_config(
     layout="wide"
 )
 
+# ==========================================================
+# LOGIN / AUTHENTICATION
+# ==========================================================
+
+def check_login():
+
+    # ------------------------------------------------------
+    # Already logged in
+    # ------------------------------------------------------
+
+    if st.session_state.get("authenticated", False):
+        return True
+
+    # ------------------------------------------------------
+    # Login Page
+    # ------------------------------------------------------
+
+    st.markdown(
+        """
+        <style>
+
+        .login-container {
+            max-width: 420px;
+            margin: 80px auto;
+            padding: 30px;
+            border: 1px solid #e6e6e6;
+            border-radius: 14px;
+            background: #ffffff;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+
+        .login-title {
+            text-align: center;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .login-subtitle {
+            text-align: center;
+            color: #666666;
+            margin-bottom: 25px;
+        }
+
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        '<div class="login-container">',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        '<div class="login-title">🔐 Login</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        '<div class="login-subtitle">FastRanking Payments Dashboard</div>',
+        unsafe_allow_html=True
+    )
+
+    email = st.text_input(
+        "Email",
+        placeholder="Enter your email"
+    )
+
+    password = st.text_input(
+        "Password",
+        type="password",
+        placeholder="Enter your password"
+    )
+
+    login_clicked = st.button(
+        "Login",
+        type="primary",
+        width="stretch"
+    )
+
+    st.markdown(
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    # ------------------------------------------------------
+    # Validate Login
+    # ------------------------------------------------------
+
+    if login_clicked:
+
+        email = email.strip().lower()
+
+        users = st.secrets.get("users", {})
+
+        if email in users and password == users[email]:
+
+            st.session_state.authenticated = True
+            st.session_state.logged_in_email = email
+
+            st.rerun()
+
+        else:
+
+            st.error(
+                "Invalid email or password."
+            )
+
+    return False
+
+
+# ----------------------------------------------------------
+# REQUIRE LOGIN
+# ----------------------------------------------------------
+
+if not check_login():
+
+    st.stop()
+#############################################################################
+
+# ==========================================================
+# LOGOUT
+# ==========================================================
+
+with st.sidebar:
+
+    st.write(
+        f"👤 {st.session_state.get('logged_in_email', '')}"
+    )
+
+    if st.button("🚪 Logout", width="stretch"):
+
+        st.session_state.authenticated = False
+        st.session_state.pop("logged_in_email", None)
+
+        st.rerun()
+
+#############################################################################
+
+
+
+
+
 st.title("💰 FastRanking Payments Dashboard")
 st.markdown("""
 <style>
