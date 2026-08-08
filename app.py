@@ -117,7 +117,10 @@ def check_login():
 
             st.session_state.authenticated = True
             st.session_state.logged_in_email = email
-
+            st.session_state.view = users[email].get(
+                "view",
+                "financial"
+            )
             st.rerun()
 
         else:
@@ -136,6 +139,20 @@ def check_login():
 if not check_login():
 
     st.stop()
+#############################################################################
+
+# USER VIEW
+# ==========================================================
+
+USER_VIEW = st.session_state.get(
+    "view",
+    "financial"
+)
+
+IS_FINANCIAL = USER_VIEW == "financial"
+IS_PERCENTAGE = USER_VIEW == "percentage"
+
+
 #############################################################################
 
 # ==========================================================
@@ -764,88 +781,249 @@ if selected_service == "Unclassified":
         use_container_width=True,
         hide_index=True
     )
-# ----------------------------------------------------------
+# ==========================================================
 # KPI CARDS
-# ----------------------------------------------------------
+# ==========================================================
 
 c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
-with c1:
-    kpi_card("👥 Customers", f"{total_customers:,}")
 
-with c2:
-    kpi_card("📄 Invoices", f"{total_invoices:,}")
+if IS_FINANCIAL:
 
-with c3:
-    kpi_card("💷 Invoiced", f"£{total_invoiced:,.2f}")
+    with c1:
+        kpi_card(
+            "👥 Customers",
+            f"{total_customers:,}"
+        )
 
-with c4:
-    kpi_card("✅ Paid", f"£{total_paid:,.2f}")
+    with c2:
+        kpi_card(
+            "📄 Invoices",
+            f"{total_invoices:,}"
+        )
 
-with c5:
-    kpi_card("⏳ Pending", f"£{total_pending:,.2f}")
+    with c3:
+        kpi_card(
+            "💷 Invoiced",
+            f"£{total_invoiced:,.2f}"
+        )
 
-with c6:
-    kpi_card("📅 Future Due", f"£{future_due:,.2f}")
+    with c4:
+        kpi_card(
+            "✅ Paid",
+            f"£{total_paid:,.2f}"
+        )
 
-with c7:
-    kpi_card("🔴 Overdue", f"£{overdue_total:,.2f}")
+    with c5:
+        kpi_card(
+            "⏳ Pending",
+            f"£{total_pending:,.2f}"
+        )
 
-with c8:
-    kpi_card("📊 Collection", f"{collection_rate:.1f}%")
+    with c6:
+        kpi_card(
+            "📅 Future Due",
+            f"£{future_due:,.2f}"
+        )
+
+    with c7:
+        kpi_card(
+            "🔴 Overdue",
+            f"£{overdue_total:,.2f}"
+        )
+
+    with c8:
+        kpi_card(
+            "📊 Collection",
+            f"{collection_rate:.1f}%"
+        )
+
+else:
+
+    # ------------------------------------------------------
+    # PERCENTAGE VIEW
+    # ------------------------------------------------------
+
+    paid_percentage = (
+        (total_paid / total_invoiced) * 100
+        if total_invoiced > 0 else 0
+    )
+
+    outstanding_percentage = (
+        ((total_invoiced - total_paid) / total_invoiced) * 100
+        if total_invoiced > 0 else 0
+    )
+
+    future_percentage = (
+        (future_due / total_invoiced) * 100
+        if total_invoiced > 0 else 0
+    )
+
+    overdue_percentage = (
+        (overdue_total / total_invoiced) * 100
+        if total_invoiced > 0 else 0
+    )
+
+    with c1:
+        kpi_card(
+            "👥 Customers",
+            f"{total_customers:,}"
+        )
+
+    with c2:
+        kpi_card(
+            "📄 Invoices",
+            f"{total_invoices:,}"
+        )
+
+    with c3:
+        kpi_card(
+            "✅ Paid",
+            f"{paid_percentage:.1f}%"
+        )
+
+    with c4:
+        kpi_card(
+            "⏳ Outstanding",
+            f"{outstanding_percentage:.1f}%"
+        )
+
+    with c5:
+        kpi_card(
+            "📅 Future Due",
+            f"{future_percentage:.1f}%"
+        )
+
+    with c6:
+        kpi_card(
+            "🔴 Overdue",
+            f"{overdue_percentage:.1f}%"
+        )
+
+    with c7:
+        kpi_card(
+            "📊 Collection",
+            f"{collection_rate:.1f}%"
+        )
+
+    with c8:
+        kpi_card(
+            "📈 Payment Coverage",
+            f"{paid_percentage:.1f}%"
+        )
 # ----------------------------------------------------------
 # MONTHLY BREAKDOWN
 # ----------------------------------------------------------
 
 st.subheader("Monthly Invoice Summary")
 
-monthly_display = (
-    display_df
-    .groupby("Month", as_index=False)
-    .agg(
-        Customers=("Customer Name", "nunique"),
-        Invoices=("Invoice Number", "nunique"),
-        Total_Invoiced=("Total", "sum"),
-        Outstanding=("Balance", "sum")
+# ==========================================================
+# MONTHLY SUMMARY DISPLAY
+# ==========================================================
+
+if IS_FINANCIAL:
+
+    st.dataframe(
+        monthly_display,
+        use_container_width=True,
+        hide_index=True
     )
-)
 
-monthly_display = monthly_display.rename(columns={
-    "Month":"Month",
-    "Customers":"Customers",
-    "Invoices":"Invoices",
-    "Total_Invoiced":"Invoiced (£)",
-    "Outstanding":"Outstanding (£)"
-})
+else:
 
+    # ------------------------------------------------------
+    # PERCENTAGE MONTHLY SUMMARY
+    # ------------------------------------------------------
 
-# ----------------------------------------------------------
-# GRAND TOTAL
-# ----------------------------------------------------------
+    monthly_percentage = (
+        display_df
+        .groupby("Month", as_index=False)
+        .agg(
+            Customers=("Customer Name", "nunique"),
+            Invoices=("Invoice Number", "nunique"),
+            Total_Invoiced=("Total", "sum"),
+            Total_Paid=("Paid", "sum"),
+            Outstanding=("Balance", "sum")
+        )
+    )
 
-grand_total = pd.DataFrame([{
-    "Month": "TOTAL",
-    "Customers": monthly_display["Customers"].sum(),
-    "Invoices": monthly_display["Invoices"].sum(),
-    "Invoiced (£)": monthly_display["Invoiced (£)"].sum(),
-    "Outstanding (£)": monthly_display["Outstanding (£)"].sum()
-}])
+    # Percentage of total invoice value
+    monthly_percentage["Paid %"] = np.where(
+        monthly_percentage["Total_Invoiced"] > 0,
+        (
+            monthly_percentage["Total_Paid"]
+            / monthly_percentage["Total_Invoiced"]
+        ) * 100,
+        0
+    )
 
-monthly_display = pd.concat(
-    [monthly_display, grand_total],
-    ignore_index=True
-)
+    monthly_percentage["Outstanding %"] = np.where(
+        monthly_percentage["Total_Invoiced"] > 0,
+        (
+            monthly_percentage["Outstanding"]
+            / monthly_percentage["Total_Invoiced"]
+        ) * 100,
+        0
+    )
 
+    monthly_percentage = monthly_percentage[
+        [
+            "Month",
+            "Customers",
+            "Invoices",
+            "Paid %",
+            "Outstanding %"
+        ]
+    ]
 
-##########
+    # ------------------------------------------------------
+    # TOTAL ROW
+    # ------------------------------------------------------
 
+    total_invoice = display_df["Total"].sum()
+    total_paid_value = display_df["Paid"].sum()
+    total_outstanding = display_df["Balance"].sum()
 
+    total_paid_pct = (
+        total_paid_value / total_invoice * 100
+        if total_invoice > 0 else 0
+    )
 
+    total_outstanding_pct = (
+        total_outstanding / total_invoice * 100
+        if total_invoice > 0 else 0
+    )
 
-st.dataframe(
-    monthly_display,
-    use_container_width=True,
-    hide_index=True
-)
+    percentage_total_row = pd.DataFrame([{
+        "Month": "TOTAL",
+        "Customers": display_df["Customer Name"].nunique(),
+        "Invoices": display_df["Invoice Number"].nunique(),
+        "Paid %": total_paid_pct,
+        "Outstanding %": total_outstanding_pct
+    }])
+
+    monthly_percentage = pd.concat(
+        [
+            monthly_percentage,
+            percentage_total_row
+        ],
+        ignore_index=True
+    )
+
+    monthly_percentage["Paid %"] = (
+        monthly_percentage["Paid %"]
+        .map(lambda x: f"{x:.1f}%")
+    )
+
+    monthly_percentage["Outstanding %"] = (
+        monthly_percentage["Outstanding %"]
+        .map(lambda x: f"{x:.1f}%")
+    )
+
+    st.dataframe(
+        monthly_percentage,
+        use_container_width=True,
+        hide_index=True
+    )
 
 
 st.divider()
@@ -879,16 +1057,32 @@ overall_invoice = 0
 overall_paid = 0
 rows = []
 ########################################################
-for customer in sorted(display_df["Customer Name"].unique()):
+# ==========================================================
+# CUSTOMER PAYMENT MATRIX
+# ==========================================================
 
-    row = {"Customer Name": customer}
+months = sorted(display_df["Month"].unique())
+
+rows = []
+
+for customer in sorted(
+    display_df["Customer Name"].dropna().unique()
+):
+
+    row = {
+        "Customer Name": customer
+    }
 
     customer_df = display_df[
         display_df["Customer Name"] == customer
     ]
 
-    total_invoice = 0
-    total_paid = 0
+    total_invoice = customer_df["Total"].sum()
+    total_paid = customer_df["Paid"].sum()
+
+    # ------------------------------------------------------
+    # MONTHLY CELLS
+    # ------------------------------------------------------
 
     for month in months:
 
@@ -898,166 +1092,219 @@ for customer in sorted(display_df["Customer Name"].unique()):
 
         invoice_value = month_df["Total"].sum()
         paid_value = month_df["Paid"].sum()
-        grand_invoice[month] += invoice_value
-        grand_paid[month] += paid_value
 
-        total_invoice += invoice_value
-        total_paid += paid_value
-        overall_invoice += invoice_value
-        overall_paid += paid_value
+        if IS_FINANCIAL:
 
-        if invoice_value == 0:
-            row[month] = "-"
+            if invoice_value == 0:
 
-        elif paid_value == 0:
-            row[month] = f"£0 / £{invoice_value:,.0f}"
+                row[month] = "-"
 
-        elif paid_value >= invoice_value:
-            row[month] = f"£{invoice_value:,.0f}"
+            elif paid_value == 0:
+
+                row[month] = (
+                    f"£0 / £{invoice_value:,.0f}"
+                )
+
+            elif paid_value >= invoice_value:
+
+                row[month] = (
+                    f"£{invoice_value:,.0f}"
+                )
+
+            else:
+
+                row[month] = (
+                    f"£{paid_value:,.0f} / "
+                    f"£{invoice_value:,.0f}"
+                )
 
         else:
-            row[month] = f"£{paid_value:,.0f} / £{invoice_value:,.0f}"
 
-    if total_invoice == 0:
-        row["Total"] = "-"
-    
-    elif total_paid == 0:
-        row["Total"] = f"£0 / £{total_invoice:,.0f}"
-    
-    elif total_paid >= total_invoice:
-        row["Total"] = f"£{total_invoice:,.0f}"
-    
+            # --------------------------------------------------
+            # PERCENTAGE VIEW
+            # --------------------------------------------------
+
+            if invoice_value == 0:
+
+                row[month] = "-"
+
+            else:
+
+                paid_pct = (
+                    paid_value / invoice_value
+                ) * 100
+
+                row[month] = (
+                    f"{paid_pct:.1f}%"
+                )
+
+    # ------------------------------------------------------
+    # TOTAL
+    # ------------------------------------------------------
+
+    if IS_FINANCIAL:
+
+        if total_invoice == 0:
+
+            row["Total"] = "-"
+
+        elif total_paid == 0:
+
+            row["Total"] = (
+                f"£0 / £{total_invoice:,.0f}"
+            )
+
+        elif total_paid >= total_invoice:
+
+            row["Total"] = (
+                f"£{total_invoice:,.0f}"
+            )
+
+        else:
+
+            row["Total"] = (
+                f"£{total_paid:,.0f} / "
+                f"£{total_invoice:,.0f}"
+            )
+
     else:
-        row["Total"] = f"£{total_paid:,.0f} / £{total_invoice:,.0f}"
+
+        if total_invoice == 0:
+
+            row["Total"] = "-"
+
+        else:
+
+            total_paid_pct = (
+                total_paid / total_invoice
+            ) * 100
+
+            row["Total"] = (
+                f"{total_paid_pct:.1f}%"
+            )
 
     rows.append(row)
 
 
-# ----------------------------------------------------------
-# GRAND TOTAL ROW
-# ----------------------------------------------------------
-
-total_row = {
-    "Customer Name": "GRAND TOTAL"
-}
-
-for month in months:
-
-    invoice = grand_invoice[month]
-    paid = grand_paid[month]
-
-    if invoice == 0:
-        total_row[month] = "-"
-
-    elif paid == 0:
-        total_row[month] = f"£0 / £{invoice:,.0f}"
-
-    elif paid >= invoice:
-        total_row[month] = f"£{invoice:,.0f}"
-
-    else:
-        total_row[month] = f"£{paid:,.0f} / £{invoice:,.0f}"
-
-if overall_invoice == 0:
-    total_row["Total"] = "-"
-
-elif overall_paid == 0:
-    total_row["Total"] = f"£0 / £{overall_invoice:,.0f}"
-
-elif overall_paid >= overall_invoice:
-    total_row["Total"] = f"£{overall_invoice:,.0f}"
-
-else:
-    total_row["Total"] = f"£{overall_paid:,.0f} / £{overall_invoice:,.0f}"
-
-rows.append(total_row)
-
-
-
-
-
-
-
-
-
-
-
-
 customer_table = pd.DataFrame(rows)
 
-# ----------------------------------------------------------
+# ==========================================================
 # OUTSTANDING ONLY FILTER
-# ----------------------------------------------------------
+# ==========================================================
 
 if show_outstanding_only:
 
-    def has_outstanding(total_value):
+    if IS_FINANCIAL:
 
-        if total_value == "-":
-            return False
+        def has_outstanding(total_value):
 
-        # Green cells contain only one amount (fully paid)
-        if "/" not in total_value:
-            return False
+            if total_value == "-":
+                return False
 
-        paid = float(
-            total_value.split("/")[0]
-            .replace("£", "")
-            .replace(",", "")
-            .strip()
-        )
+            if "/" not in total_value:
+                return False
 
-        invoice = float(
-            total_value.split("/")[1]
-            .replace("£", "")
-            .replace(",", "")
-            .strip()
-        )
+            paid = float(
+                total_value
+                .split("/")[0]
+                .replace("£", "")
+                .replace(",", "")
+                .strip()
+            )
 
-        return paid < invoice
+            invoice = float(
+                total_value
+                .split("/")[1]
+                .replace("£", "")
+                .replace(",", "")
+                .strip()
+            )
+
+            return paid < invoice
+
+    else:
+
+        def has_outstanding(total_value):
+
+            if total_value == "-":
+                return False
+
+            percentage = float(
+                total_value
+                .replace("%", "")
+                .strip()
+            )
+
+            return percentage < 100
 
     customer_table = customer_table[
-        customer_table["Total"].apply(has_outstanding)
+        customer_table["Total"].apply(
+            has_outstanding
+        )
     ]
 
-
-
-
-
-
-
-
-
-
+# ==========================================================
+# CUSTOMER TABLE COLOURS
+# ==========================================================
 
 def colour_cells(value):
 
     if value == "-":
         return ""
 
-    if "/" not in value:
+    # ------------------------------------------------------
+    # FINANCIAL VIEW
+    # ------------------------------------------------------
+
+    if IS_FINANCIAL:
+
+        if "/" not in value:
+
+            return "background-color:#d9ead3;"
+
+        paid = float(
+            value
+            .split("/")[0]
+            .replace("£", "")
+            .replace(",", "")
+            .strip()
+        )
+
+        invoice = float(
+            value
+            .split("/")[1]
+            .replace("£", "")
+            .replace(",", "")
+            .strip()
+        )
+
+        if paid == 0:
+
+            return "background-color:#f4cccc;"
+
+        return "background-color:#fff2cc;"
+
+    # ------------------------------------------------------
+    # PERCENTAGE VIEW
+    # ------------------------------------------------------
+
+    percentage = float(
+        value
+        .replace("%", "")
+        .strip()
+    )
+
+    if percentage >= 100:
+
         return "background-color:#d9ead3;"
 
-    paid = float(
-        value.split("/")[0]
-        .replace("£", "")
-        .replace(",", "")
-        .strip()
-    )
+    elif percentage <= 0:
 
-    invoice = float(
-        value.split("/")[1]
-        .replace("£", "")
-        .replace(",", "")
-        .strip()
-    )
-
-    if paid == 0:
         return "background-color:#f4cccc;"
 
-    return "background-color:#fff2cc;"
+    else:
 
-
+        return "background-color:#fff2cc;"
 
 
 
@@ -1155,33 +1402,65 @@ customer_payments = payments[
     payments["Customer Name"] == selected_customer
 ].copy()
 
-# ----------------------------------------------------------
+# ==========================================================
 # CUSTOMER KPIs
-# ----------------------------------------------------------
+# ==========================================================
 
 cust_total = customer_invoices["Total"].sum()
 cust_balance = customer_invoices["Balance"].sum()
-cust_paid = cust_total - cust_balance
+cust_paid = customer_invoices["Paid"].sum()
 
 k1, k2, k3 = st.columns(3)
 
-with k1:
-    st.metric(
-        "Total Invoiced",
-        f"£{cust_total:,.2f}"
+if IS_FINANCIAL:
+
+    with k1:
+        st.metric(
+            "Total Invoiced",
+            f"£{cust_total:,.2f}"
+        )
+
+    with k2:
+        st.metric(
+            "Paid",
+            f"£{cust_paid:,.2f}"
+        )
+
+    with k3:
+        st.metric(
+            "Outstanding",
+            f"£{cust_balance:,.2f}"
+        )
+
+else:
+
+    customer_paid_pct = (
+        cust_paid / cust_total * 100
+        if cust_total > 0 else 0
     )
 
-with k2:
-    st.metric(
-        "Paid",
-        f"£{cust_paid:,.2f}"
+    customer_outstanding_pct = (
+        cust_balance / cust_total * 100
+        if cust_total > 0 else 0
     )
 
-with k3:
-    st.metric(
-        "Outstanding",
-        f"£{cust_balance:,.2f}"
-    )
+    with k1:
+        st.metric(
+            "Payment Rate",
+            f"{customer_paid_pct:.1f}%"
+        )
+
+    with k2:
+        st.metric(
+            "Outstanding",
+            f"{customer_outstanding_pct:.1f}%"
+        )
+
+    with k3:
+        st.metric(
+            "Collection",
+            f"{customer_paid_pct:.1f}%"
+        )
 
 st.divider()
 # ----------------------------------------------------------
@@ -1274,28 +1553,85 @@ ledger["Days Overdue"] = (
 # DISPLAY
 # ----------------------------------------------------------
 
-ledger = ledger[
-    [
-        "Invoice Number",
-        "Invoice Date",
-        "Due Date",
-        "Payment_Date",
-        "Status",
-        "Days Overdue",
-        "Total",
-        "Paid_Amount",
-        "Outstanding"
+# ==========================================================
+# LEDGER DISPLAY
+# ==========================================================
+
+if IS_FINANCIAL:
+
+    ledger = ledger[
+        [
+            "Invoice Number",
+            "Invoice Date",
+            "Due Date",
+            "Payment_Date",
+            "Status",
+            "Days Overdue",
+            "Total",
+            "Paid_Amount",
+            "Outstanding"
+        ]
     ]
-]
 
-ledger = ledger.rename(columns={
-    "Invoice Number":"Invoice",
-    "Payment_Date":"Payment Date",
-    "Total":"Amount (£)",
-    "Paid_Amount":"Paid (£)",
-    "Outstanding":"Outstanding (£)"
-})
+    ledger = ledger.rename(columns={
+        "Invoice Number": "Invoice",
+        "Payment_Date": "Payment Date",
+        "Total": "Amount (£)",
+        "Paid_Amount": "Paid (£)",
+        "Outstanding": "Outstanding (£)"
+    })
 
+else:
+
+    # ------------------------------------------------------
+    # PERCENTAGE LEDGER
+    # ------------------------------------------------------
+
+    ledger["Paid %"] = np.where(
+        ledger["Total"] > 0,
+        (
+            ledger["Paid_Amount"]
+            / ledger["Total"]
+        ) * 100,
+        0
+    )
+
+    ledger["Outstanding %"] = np.where(
+        ledger["Total"] > 0,
+        (
+            ledger["Outstanding"]
+            / ledger["Total"]
+        ) * 100,
+        0
+    )
+
+    ledger["Paid %"] = ledger["Paid %"].map(
+        lambda x: f"{x:.1f}%"
+    )
+
+    ledger["Outstanding %"] = ledger[
+        "Outstanding %"
+    ].map(
+        lambda x: f"{x:.1f}%"
+    )
+
+    ledger = ledger[
+        [
+            "Invoice Number",
+            "Invoice Date",
+            "Due Date",
+            "Payment_Date",
+            "Status",
+            "Days Overdue",
+            "Paid %",
+            "Outstanding %"
+        ]
+    ]
+
+    ledger = ledger.rename(columns={
+        "Invoice Number": "Invoice",
+        "Payment_Date": "Payment Date"
+    })
 # ----------------------------------------------------------
 # FORMAT DATES
 # ----------------------------------------------------------
@@ -1344,18 +1680,22 @@ def colour_rows(row):
 # DISPLAY CURRENCY
 # ----------------------------------------------------------
 
-currency_columns = [
-    "Amount (£)",
-    "Paid (£)",
-    "Outstanding (£)"
-]
+if IS_FINANCIAL:
 
-for col in currency_columns:
+    currency_columns = [
+        "Amount (£)",
+        "Paid (£)",
+        "Outstanding (£)"
+    ]
 
-    ledger[col] = ledger[col].apply(
-        lambda x: "-" if pd.isna(x) or x == 0 else f"£{x:,.2f}"
-    )
+    for col in currency_columns:
 
+        ledger[col] = ledger[col].apply(
+            lambda x:
+                "-"
+                if pd.isna(x) or x == 0
+                else f"£{x:,.2f}"
+        )
 
 ledger_style = (
     ledger.style
