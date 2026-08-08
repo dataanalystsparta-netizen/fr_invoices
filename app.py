@@ -198,6 +198,167 @@ def kpi_card(title, value):
         <div class="kpi-value">{value}</div>
     </div>
     """, unsafe_allow_html=True)
+
+# ----------------------------------------------------------
+# SERVICE CLASSIFICATION
+# ----------------------------------------------------------
+
+def classify_service(item_name, item_desc):
+"""
+Classify an invoice into:
+
+```
+Service Type:
+    - SEO
+    - Web Development
+    - Other
+
+Service Subcategory:
+    SEO:
+        - SEO
+        - SMO
+        - GBPO
+        - GMB
+        - Google Ads
+        - Meta Ads
+        - Google + Meta Ads
+
+    Web Development:
+        - blank
+
+Priority:
+    Item Name is checked first.
+    Item Desc is checked only when Item Name is blank.
+"""
+
+# ------------------------------------------------------
+# CLEAN VALUES
+# ------------------------------------------------------
+
+item_name = (
+    str(item_name).strip()
+    if pd.notna(item_name)
+    else ""
+)
+
+item_desc = (
+    str(item_desc).strip()
+    if pd.notna(item_desc)
+    else ""
+)
+
+# ------------------------------------------------------
+# ITEM NAME HAS PRIORITY
+# ------------------------------------------------------
+
+source = item_name if item_name else item_desc
+
+# Normalise spacing / case for matching
+source_clean = (
+    source
+    .replace("\n", " ")
+    .replace("\r", " ")
+    .strip()
+    .casefold()
+)
+
+# ------------------------------------------------------
+# WEB DEVELOPMENT
+# ------------------------------------------------------
+
+if (
+    "web development" in source_clean
+    or "web development and web services" in source_clean
+    or source_clean == "web"
+    or "landing page development" in source_clean
+):
+
+    return "Web Development", ""
+
+# ------------------------------------------------------
+# GOOGLE + META ADS
+# ------------------------------------------------------
+
+if (
+    ("google" in source_clean and "meta" in source_clean)
+    or "google and meta ads" in source_clean
+):
+
+    return "SEO", "Google + Meta Ads"
+
+# ------------------------------------------------------
+# META ADS
+# ------------------------------------------------------
+
+if "meta ads" in source_clean:
+
+    return "SEO", "Meta Ads"
+
+# ------------------------------------------------------
+# GOOGLE ADS
+# ------------------------------------------------------
+
+if (
+    "google ads" in source_clean
+    or "google advertis" in source_clean
+    or "ad spent" in source_clean
+    or "ad spends" in source_clean
+    or "ppc management" in source_clean
+):
+
+    return "SEO", "Google Ads"
+
+# ------------------------------------------------------
+# GBPO
+# ------------------------------------------------------
+
+if (
+    "gbpo" in source_clean
+    or "google business profile" in source_clean
+    or "google business profile optimization" in source_clean
+):
+
+    return "SEO", "GBPO"
+
+# ------------------------------------------------------
+# GMB
+# ------------------------------------------------------
+
+if (
+    "google my business" in source_clean
+    or "(gmb)" in source_clean
+    or "gmb" in source_clean
+):
+
+    return "SEO", "GMB"
+
+# ------------------------------------------------------
+# SMO
+# ------------------------------------------------------
+
+if (
+    "smo" in source_clean
+    or "social media optimization" in source_clean
+):
+
+    return "SEO", "SMO"
+
+# ------------------------------------------------------
+# SEO
+# ------------------------------------------------------
+
+if "seo" in source_clean:
+
+    return "SEO", "SEO"
+
+# ------------------------------------------------------
+# OTHER / UNCLASSIFIED
+# ------------------------------------------------------
+
+return "Other", ""
+
+
+
 # ----------------------------------------------------------
 # FILES
 # ----------------------------------------------------------
@@ -228,6 +389,45 @@ def load_data():
     payments.columns = payments.columns.str.strip()
     ar_current.columns = ar_current.columns.str.strip()
     ar_overdue.columns = ar_overdue.columns.str.strip()
+
+
+        
+    # ------------------------------------------------------
+    # SERVICE CLASSIFICATION
+    # ------------------------------------------------------
+    
+    # Make sure the source columns exist
+    if "Item Name" not in invoices.columns:
+        invoices["Item Name"] = ""
+    
+    if "Item Desc" not in invoices.columns:
+        invoices["Item Desc"] = ""
+    
+    # Classify each invoice
+    service_classification = invoices.apply(
+        lambda row: classify_service(
+            row["Item Name"],
+            row["Item Desc"]
+        ),
+        axis=1,
+        result_type="expand"
+    )
+    
+    service_classification.columns = [
+        "Service Type",
+        "Service Subcategory"
+    ]
+    
+    invoices = pd.concat(
+        [
+            invoices,
+            service_classification
+        ],
+        axis=1
+    )
+
+    
+
 
     # ------------------------------
     # Date columns
