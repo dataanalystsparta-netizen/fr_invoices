@@ -243,7 +243,7 @@ def classify_service(item_name, item_desc):
         or "website optimization" in source_clean
         or "business card and flyers design" in source_clean
         or "web" in source_clean
-        or "AMC" in source_clean
+        or "amc" in source_clean
     ):
         return "Web Development", ""
     # ------------------------------------------------------
