@@ -729,7 +729,27 @@ collection_rate = (
     (total_paid / total_invoiced) * 100
     if total_invoiced > 0 else 0
 )
+# ----------------------------------------------------------
+# SHOW UNCLASSIFIED SERVICES
+# ----------------------------------------------------------
 
+if selected_service == "Unclassified":
+
+    st.subheader("Unclassified Invoices")
+
+    st.dataframe(
+        display_df[
+            [
+                "Invoice Number",
+                "Customer Name",
+                "Item Name",
+                "Item Desc",
+                "Total"
+            ]
+        ],
+        use_container_width=True,
+        hide_index=True
+    )
 # ----------------------------------------------------------
 # KPI CARDS
 # ----------------------------------------------------------
