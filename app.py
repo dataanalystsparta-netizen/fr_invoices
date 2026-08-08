@@ -920,36 +920,99 @@ else:
 st.subheader("Monthly Invoice Summary")
 
 # ==========================================================
-# MONTHLY SUMMARY DISPLAY
+# CREATE MONTHLY SUMMARY FROM FILTERED DATA
+# ==========================================================
+
+monthly_display = (
+    display_df
+    .groupby("Month", as_index=False)
+    .agg(
+        Customers=("Customer Name", "nunique"),
+        Invoices=("Invoice Number", "nunique"),
+        Total_Invoiced=("Total", "sum"),
+        Total_Paid=("Paid", "sum"),
+        Outstanding=("Balance", "sum")
+    )
+    .sort_values("Month")
+    .reset_index(drop=True)
+)
+
+# ==========================================================
+# FINANCIAL VIEW
 # ==========================================================
 
 if IS_FINANCIAL:
 
+    # ------------------------------------------------------
+    # TOTAL ROW
+    # ------------------------------------------------------
+
+    monthly_total_row = pd.DataFrame([{
+        "Month": "TOTAL",
+        "Customers": display_df["Customer Name"].nunique(),
+        "Invoices": display_df["Invoice Number"].nunique(),
+        "Total_Invoiced": display_df["Total"].sum(),
+        "Total_Paid": display_df["Paid"].sum(),
+        "Outstanding": display_df["Balance"].sum()
+    }])
+
+    monthly_display = pd.concat(
+        [
+            monthly_display,
+            monthly_total_row
+        ],
+        ignore_index=True
+    )
+
+    # ------------------------------------------------------
+    # FORMAT FINANCIAL VALUES
+    # ------------------------------------------------------
+
+    monthly_display["Total_Invoiced"] = (
+        monthly_display["Total_Invoiced"]
+        .apply(lambda x: f"£{x:,.2f}")
+    )
+
+    monthly_display["Total_Paid"] = (
+        monthly_display["Total_Paid"]
+        .apply(lambda x: f"£{x:,.2f}")
+    )
+
+    monthly_display["Outstanding"] = (
+        monthly_display["Outstanding"]
+        .apply(lambda x: f"£{x:,.2f}")
+    )
+
+    # ------------------------------------------------------
+    # RENAME COLUMNS
+    # ------------------------------------------------------
+
+    monthly_display = monthly_display.rename(
+        columns={
+            "Total_Invoiced": "Invoiced",
+            "Total_Paid": "Paid",
+            "Outstanding": "Outstanding"
+        }
+    )
+
     st.dataframe(
         monthly_display,
-        use_container_width=True,
+        width="stretch",
         hide_index=True
     )
 
+# ==========================================================
+# PERCENTAGE VIEW
+# ==========================================================
+
 else:
 
+    monthly_percentage = monthly_display.copy()
+
     # ------------------------------------------------------
-    # PERCENTAGE MONTHLY SUMMARY
+    # CALCULATE PERCENTAGES
     # ------------------------------------------------------
 
-    monthly_percentage = (
-        display_df
-        .groupby("Month", as_index=False)
-        .agg(
-            Customers=("Customer Name", "nunique"),
-            Invoices=("Invoice Number", "nunique"),
-            Total_Invoiced=("Total", "sum"),
-            Total_Paid=("Paid", "sum"),
-            Outstanding=("Balance", "sum")
-        )
-    )
-
-    # Percentage of total invoice value
     monthly_percentage["Paid %"] = np.where(
         monthly_percentage["Total_Invoiced"] > 0,
         (
@@ -967,16 +1030,6 @@ else:
         ) * 100,
         0
     )
-
-    monthly_percentage = monthly_percentage[
-        [
-            "Month",
-            "Customers",
-            "Invoices",
-            "Paid %",
-            "Outstanding %"
-        ]
-    ]
 
     # ------------------------------------------------------
     # TOTAL ROW
@@ -1000,17 +1053,50 @@ else:
         "Month": "TOTAL",
         "Customers": display_df["Customer Name"].nunique(),
         "Invoices": display_df["Invoice Number"].nunique(),
+        "Total_Invoiced": total_invoice,
+        "Total_Paid": total_paid_value,
+        "Outstanding": total_outstanding,
         "Paid %": total_paid_pct,
         "Outstanding %": total_outstanding_pct
     }])
 
+    # ------------------------------------------------------
+    # KEEP ONLY REQUIRED COLUMNS
+    # ------------------------------------------------------
+
+    monthly_percentage = monthly_percentage[
+        [
+            "Month",
+            "Customers",
+            "Invoices",
+            "Paid %",
+            "Outstanding %"
+        ]
+    ]
+
+    # ------------------------------------------------------
+    # ADD TOTAL ROW
+    # ------------------------------------------------------
+
     monthly_percentage = pd.concat(
         [
             monthly_percentage,
-            percentage_total_row
+            percentage_total_row[
+                [
+                    "Month",
+                    "Customers",
+                    "Invoices",
+                    "Paid %",
+                    "Outstanding %"
+                ]
+            ]
         ],
         ignore_index=True
     )
+
+    # ------------------------------------------------------
+    # FORMAT PERCENTAGES
+    # ------------------------------------------------------
 
     monthly_percentage["Paid %"] = (
         monthly_percentage["Paid %"]
@@ -1024,10 +1110,9 @@ else:
 
     st.dataframe(
         monthly_percentage,
-        use_container_width=True,
+        width="stretch",
         hide_index=True
     )
-
 
 st.divider()
 
