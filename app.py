@@ -315,7 +315,7 @@ def classify_service(item_name, item_desc):
     # OTHER
     # ------------------------------------------------------
 
-    return "Other", ""
+    return "Unclassified", ""
 
 # ----------------------------------------------------------
 # FILES
@@ -666,7 +666,8 @@ with f3:
     service_options = [
         "All Services",
         "SEO",
-        "Web Development"
+        "Web Development",
+        "Unclassified"
     ]
 
     selected_service = st.selectbox(
