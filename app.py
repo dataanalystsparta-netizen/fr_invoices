@@ -692,7 +692,7 @@ display_df = invoices[
 if selected_service != "All Services":
 
     display_df = display_df[
-        display_df["Service Category"] == selected_service
+        display_df["Service Type"] == selected_service
     ].copy()
 # ----------------------------------------------------------
 # RECALCULATE KPIs
