@@ -235,10 +235,15 @@ def classify_service(item_name, item_desc):
     if (
         "web development" in source_clean
         or "landing page development" in source_clean
-        or source_clean == "web"
+        or "api integration" in source_clean
+        or "crm development" in source_clean
+        or "web hosting" in source_clean
+        or "website maintenance" in source_clean
+        or "website optimisation" in source_clean
+        or "website optimization" in source_clean
+        or "business card and flyers design" in source_clean
     ):
         return "Web Development", ""
-
     # ------------------------------------------------------
     # GOOGLE + META ADS
     # ------------------------------------------------------
@@ -310,6 +315,13 @@ def classify_service(item_name, item_desc):
 
     if "seo" in source_clean:
         return "SEO", "SEO"
+
+        # ------------------------------------------------------
+    # EMAIL MARKETING
+    # ------------------------------------------------------
+
+    if "email marketing" in source_clean:
+        return "SEO", "Email Marketing"
 
     # ------------------------------------------------------
     # OTHER
