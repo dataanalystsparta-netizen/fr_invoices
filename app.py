@@ -204,160 +204,118 @@ def kpi_card(title, value):
 # ----------------------------------------------------------
 
 def classify_service(item_name, item_desc):
-"""
-Classify an invoice into:
 
-```
-Service Type:
-    - SEO
-    - Web Development
-    - Other
+    item_name = (
+        str(item_name).strip()
+        if pd.notna(item_name)
+        else ""
+    )
 
-Service Subcategory:
-    SEO:
-        - SEO
-        - SMO
-        - GBPO
-        - GMB
-        - Google Ads
-        - Meta Ads
-        - Google + Meta Ads
+    item_desc = (
+        str(item_desc).strip()
+        if pd.notna(item_desc)
+        else ""
+    )
 
-    Web Development:
-        - blank
+    # Item Name takes priority
+    source = item_name if item_name else item_desc
 
-Priority:
-    Item Name is checked first.
-    Item Desc is checked only when Item Name is blank.
-"""
+    source_clean = (
+        source
+        .replace("\n", " ")
+        .replace("\r", " ")
+        .strip()
+        .casefold()
+    )
 
-# ------------------------------------------------------
-# CLEAN VALUES
-# ------------------------------------------------------
+    # ------------------------------------------------------
+    # WEB DEVELOPMENT
+    # ------------------------------------------------------
 
-item_name = (
-    str(item_name).strip()
-    if pd.notna(item_name)
-    else ""
-)
+    if (
+        "web development" in source_clean
+        or "landing page development" in source_clean
+        or source_clean == "web"
+    ):
+        return "Web Development", ""
 
-item_desc = (
-    str(item_desc).strip()
-    if pd.notna(item_desc)
-    else ""
-)
+    # ------------------------------------------------------
+    # GOOGLE + META ADS
+    # ------------------------------------------------------
 
-# ------------------------------------------------------
-# ITEM NAME HAS PRIORITY
-# ------------------------------------------------------
+    if (
+        "google and meta ads" in source_clean
+        or (
+            "google" in source_clean
+            and "meta" in source_clean
+            and "ads" in source_clean
+        )
+    ):
+        return "SEO", "Google + Meta Ads"
 
-source = item_name if item_name else item_desc
+    # ------------------------------------------------------
+    # META ADS
+    # ------------------------------------------------------
 
-# Normalise spacing / case for matching
-source_clean = (
-    source
-    .replace("\n", " ")
-    .replace("\r", " ")
-    .strip()
-    .casefold()
-)
+    if "meta ads" in source_clean:
+        return "SEO", "Meta Ads"
 
-# ------------------------------------------------------
-# WEB DEVELOPMENT
-# ------------------------------------------------------
+    # ------------------------------------------------------
+    # GOOGLE ADS
+    # ------------------------------------------------------
 
-if (
-    "web development" in source_clean
-    or "web development and web services" in source_clean
-    or source_clean == "web"
-    or "landing page development" in source_clean
-):
+    if (
+        "google ads" in source_clean
+        or "google advertis" in source_clean
+        or "ad spent" in source_clean
+        or "ad spends" in source_clean
+        or "ppc management" in source_clean
+    ):
+        return "SEO", "Google Ads"
 
-    return "Web Development", ""
+    # ------------------------------------------------------
+    # GBPO
+    # ------------------------------------------------------
 
-# ------------------------------------------------------
-# GOOGLE + META ADS
-# ------------------------------------------------------
+    if (
+        "gbpo" in source_clean
+        or "google business profile" in source_clean
+    ):
+        return "SEO", "GBPO"
 
-if (
-    ("google" in source_clean and "meta" in source_clean)
-    or "google and meta ads" in source_clean
-):
+    # ------------------------------------------------------
+    # GMB
+    # ------------------------------------------------------
 
-    return "SEO", "Google + Meta Ads"
+    if (
+        "google my business" in source_clean
+        or "(gmb)" in source_clean
+        or source_clean == "gmb"
+    ):
+        return "SEO", "GMB"
 
-# ------------------------------------------------------
-# META ADS
-# ------------------------------------------------------
+    # ------------------------------------------------------
+    # SMO
+    # ------------------------------------------------------
 
-if "meta ads" in source_clean:
+    if (
+        "smo" in source_clean
+        or "social media optimization" in source_clean
+    ):
+        return "SEO", "SMO"
 
-    return "SEO", "Meta Ads"
+    # ------------------------------------------------------
+    # SEO
+    # ------------------------------------------------------
 
-# ------------------------------------------------------
-# GOOGLE ADS
-# ------------------------------------------------------
+    if "seo" in source_clean:
+        return "SEO", "SEO"
 
-if (
-    "google ads" in source_clean
-    or "google advertis" in source_clean
-    or "ad spent" in source_clean
-    or "ad spends" in source_clean
-    or "ppc management" in source_clean
-):
+    # ------------------------------------------------------
+    # OTHER
+    # ------------------------------------------------------
 
-    return "SEO", "Google Ads"
-
-# ------------------------------------------------------
-# GBPO
-# ------------------------------------------------------
-
-if (
-    "gbpo" in source_clean
-    or "google business profile" in source_clean
-    or "google business profile optimization" in source_clean
-):
-
-    return "SEO", "GBPO"
-
-# ------------------------------------------------------
-# GMB
-# ------------------------------------------------------
-
-if (
-    "google my business" in source_clean
-    or "(gmb)" in source_clean
-    or "gmb" in source_clean
-):
-
-    return "SEO", "GMB"
-
-# ------------------------------------------------------
-# SMO
-# ------------------------------------------------------
-
-if (
-    "smo" in source_clean
-    or "social media optimization" in source_clean
-):
-
-    return "SEO", "SMO"
-
-# ------------------------------------------------------
-# SEO
-# ------------------------------------------------------
-
-if "seo" in source_clean:
-
-    return "SEO", "SEO"
-
-# ------------------------------------------------------
-# OTHER / UNCLASSIFIED
-# ------------------------------------------------------
-
-return "Other", ""
-
-
+    return "Other", ""
 
 # ----------------------------------------------------------
 # FILES
