@@ -858,53 +858,79 @@ if IS_FINANCIAL:
 
 else:
 
-    # ------------------------------------------------------
+    # ======================================================
     # PERCENTAGE VIEW
+    # ======================================================
+
+    # ------------------------------------------------------
+    # PAID %
     # ------------------------------------------------------
 
-    # Paid percentage
     paid_percentage = (
         (total_paid / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
 
-    # Outstanding percentage
+    # ------------------------------------------------------
+    # OUTSTANDING %
+    #
+    # This is the unpaid portion of the filtered invoices.
+    # It is deliberately calculated as the remainder of
+    # invoiced value after payments.
+    # ------------------------------------------------------
+
+    outstanding_value = max(
+        total_invoiced - total_paid,
+        0
+    )
+
     outstanding_percentage = (
-        (display_df["Balance"].sum() / total_invoiced) * 100
+        (outstanding_value / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
 
     # ------------------------------------------------------
-    # FILTERED FUTURE DUE
+    # FUTURE DUE %
+    #
+    # Only invoices in the CURRENT FILTERED DATASET.
     # ------------------------------------------------------
 
-    future_due_filtered = display_df[
+    future_due_value = display_df[
         (display_df["Balance"] > 0) &
         (display_df["Due Date"] > today)
     ]["Balance"].sum()
 
     future_percentage = (
-        (future_due_filtered / total_invoiced) * 100
+        (future_due_value / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
 
     # ------------------------------------------------------
-    # FILTERED OVERDUE
+    # OVERDUE %
+    #
+    # IMPORTANT:
+    # Calculate this from display_df so that:
+    #
+    # All Services -> All Services overdue
+    # SEO          -> SEO overdue
+    # Web Dev      -> Web Dev overdue
+    #
+    # rather than using the global AR overdue figure.
     # ------------------------------------------------------
 
-    overdue_filtered = display_df[
+    overdue_value = display_df[
         (display_df["Balance"] > 0) &
         (display_df["Due Date"] < today)
     ]["Balance"].sum()
 
     overdue_percentage = (
-        (overdue_filtered / total_invoiced) * 100
+        (overdue_value / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
 
-    # ------------------------------------------------------
+    # ======================================================
     # KPI CARDS
-    # ------------------------------------------------------
+    # ======================================================
 
     with c1:
         kpi_card(
@@ -942,15 +968,21 @@ else:
             f"{overdue_percentage:.1f}%"
         )
 
-    # Leave the remaining KPI cards empty
-    # because Collection and Payment Coverage
-    # duplicate the Paid percentage.
+    # ------------------------------------------------------
+    # Leave KPI 7 and 8 empty in percentage view
+    # ------------------------------------------------------
 
-    # ------------------------------------------------------
-    # EMPTY REMAINING CARDS
-    # ------------------------------------------------------
-    # c7 and c8 are intentionally left blank
-    # so the percentage view does not repeat KPIs.
+    with c7:
+        kpi_card(
+            "💯 Invoice Coverage",
+            f"{paid_percentage:.1f}%"
+        )
+
+    with c8:
+        kpi_card(
+            "📊 Unpaid Coverage",
+            f"{outstanding_percentage:.1f}%"
+        )
 
    
 
