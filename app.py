@@ -77,6 +77,57 @@ if "code" in st.query_params:
         )
 
         st.json(response.json())
+
+
+
+# ==========================================================
+# TEST ZOHO ACCESS TOKEN
+# ==========================================================
+
+if "zoho" in st.secrets:
+
+    import requests
+
+    client_id = st.secrets["zoho"]["client_id"]
+    client_secret = st.secrets["zoho"]["client_secret"]
+    refresh_token = st.secrets["zoho"]["refresh_token"]
+
+    token_response = requests.post(
+        "https://accounts.zoho.eu/oauth/v2/token",
+        params={
+            "refresh_token": refresh_token,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "refresh_token",
+        },
+        timeout=30
+    )
+
+    if token_response.ok:
+
+        token_data = token_response.json()
+
+        if "access_token" in token_data:
+
+            st.success(
+                "Zoho API authentication is working!"
+            )
+
+        else:
+
+            st.error(
+                "Zoho did not return an access token."
+            )
+
+            st.json(token_data)
+
+    else:
+
+        st.error(
+            "Zoho token refresh failed."
+        )
+
+        st.json(token_response.json())
 # ----------------------------------------------------------
 # PAGE CONFIG
 # ----------------------------------------------------------
