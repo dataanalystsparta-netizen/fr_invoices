@@ -106,6 +106,27 @@ def get_all_invoices():
         page += 1
 
     return pd.DataFrame(all_invoices)
+
+# ==========================================================
+# TEST ZOHO INVOICE RETRIEVAL
+# ==========================================================
+
+with st.spinner("Retrieving invoices from Zoho Books..."):
+
+    zoho_invoices = get_all_invoices()
+
+st.success(
+    f"Zoho returned {len(zoho_invoices):,} invoices."
+)
+
+st.write("Sample invoices returned by Zoho:")
+
+st.dataframe(
+    zoho_invoices.head(10),
+    width="stretch"
+)
+
+
 # ==========================================================
 # COMPARE API INVOICES WITH EXISTING EXCEL
 # ==========================================================
@@ -130,24 +151,6 @@ st.write("### API Invoice Columns")
 
 st.write(
     list(zoho_invoices.columns)
-)
-# ==========================================================
-# TEST ZOHO INVOICE RETRIEVAL
-# ==========================================================
-
-with st.spinner("Retrieving invoices from Zoho Books..."):
-
-    zoho_invoices = get_all_invoices()
-
-st.success(
-    f"Zoho returned {len(zoho_invoices):,} invoices."
-)
-
-st.write("Sample invoices returned by Zoho:")
-
-st.dataframe(
-    zoho_invoices.head(10),
-    width="stretch"
 )
 # ----------------------------------------------------------
 # PAGE CONFIG
