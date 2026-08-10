@@ -12,16 +12,71 @@ import numpy as np
 
 if "code" in st.query_params:
 
+    import requests
+
     authorization_code = st.query_params["code"]
 
-    st.session_state["zoho_authorization_code"] = authorization_code
+    client_id = st.secrets["zoho"]["client_id"]
+    client_secret = st.secrets["zoho"]["client_secret"]
 
-    st.success("Zoho authorization successful!")
-
-    st.write(
-        "Authorization code received. "
-        "We can now exchange it for a refresh token."
+    redirect_uri = (
+        "https://fastranking-accounts.streamlit.app/"
     )
+
+    token_url = (
+        "https://accounts.zoho.eu/oauth/v2/token"
+    )
+
+    response = requests.post(
+        token_url,
+        params={
+            "code": authorization_code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+        },
+        timeout=30
+    )
+
+    if response.ok:
+
+        token_data = response.json()
+
+        if "refresh_token" in token_data:
+
+            st.success(
+                "Zoho authorization successful!"
+            )
+
+            st.write(
+                "Refresh token received successfully."
+            )
+
+            st.code(
+                token_data["refresh_token"],
+                language=None
+            )
+
+        else:
+
+            st.error(
+                "Zoho did not return a refresh token."
+            )
+
+            st.json(token_data)
+
+    else:
+
+        st.error(
+            "Failed to exchange authorization code."
+        )
+
+        st.write(
+            response.status_code
+        )
+
+        st.json(response.json())
 # ----------------------------------------------------------
 # PAGE CONFIG
 # ----------------------------------------------------------
