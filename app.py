@@ -857,120 +857,94 @@ if IS_FINANCIAL:
         )
 
 else:
-    
-    # ======================================================
+
+    # ------------------------------------------------------
     # PERCENTAGE VIEW
-    # ======================================================
-
-    # ------------------------------------------------------
-    # PAYMENT %
     # ------------------------------------------------------
 
+    # Paid percentage
     paid_percentage = (
         (total_paid / total_invoiced) * 100
-        if total_invoiced > 0
-        else 0
+        if total_invoiced > 0 else 0
     )
 
-    # ------------------------------------------------------
-    # OUTSTANDING %
-    # ------------------------------------------------------
-
+    # Outstanding percentage
     outstanding_percentage = (
-        ((total_invoiced - total_paid) / total_invoiced) * 100
-        if total_invoiced > 0
-        else 0
+        (display_df["Balance"].sum() / total_invoiced) * 100
+        if total_invoiced > 0 else 0
     )
 
     # ------------------------------------------------------
-    # FUTURE DUE %
+    # FILTERED FUTURE DUE
     # ------------------------------------------------------
+
+    future_due_filtered = display_df[
+        (display_df["Balance"] > 0) &
+        (display_df["Due Date"] > today)
+    ]["Balance"].sum()
 
     future_percentage = (
-        (future_due / total_invoiced) * 100
-        if total_invoiced > 0
-        else 0
+        (future_due_filtered / total_invoiced) * 100
+        if total_invoiced > 0 else 0
     )
 
     # ------------------------------------------------------
-    # OVERDUE %
+    # FILTERED OVERDUE
     # ------------------------------------------------------
+
+    overdue_filtered = display_df[
+        (display_df["Balance"] > 0) &
+        (display_df["Due Date"] < today)
+    ]["Balance"].sum()
 
     overdue_percentage = (
-        (overdue_total / total_invoiced) * 100
-        if total_invoiced > 0
-        else 0
+        (overdue_filtered / total_invoiced) * 100
+        if total_invoiced > 0 else 0
     )
 
-    # ======================================================
-    # PERCENTAGE KPI CARDS
-    # ======================================================
-
     # ------------------------------------------------------
-    # CUSTOMERS
+    # KPI CARDS
     # ------------------------------------------------------
 
     with c1:
-
         kpi_card(
             "👥 Customers",
             f"{total_customers:,}"
         )
 
-    # ------------------------------------------------------
-    # INVOICES
-    # ------------------------------------------------------
-
     with c2:
-
         kpi_card(
             "📄 Invoices",
             f"{total_invoices:,}"
         )
 
-    # ------------------------------------------------------
-    # PAID
-    # ------------------------------------------------------
-
     with c3:
-
         kpi_card(
             "✅ Paid",
             f"{paid_percentage:.1f}%"
         )
 
-    # ------------------------------------------------------
-    # OUTSTANDING
-    # ------------------------------------------------------
-
     with c4:
-
         kpi_card(
             "⏳ Outstanding",
             f"{outstanding_percentage:.1f}%"
         )
 
-    # ------------------------------------------------------
-    # FUTURE DUE
-    # ------------------------------------------------------
-
     with c5:
-
         kpi_card(
             "📅 Future Due",
             f"{future_percentage:.1f}%"
         )
 
-    # ------------------------------------------------------
-    # OVERDUE
-    # ------------------------------------------------------
-
     with c6:
-
         kpi_card(
             "🔴 Overdue",
             f"{overdue_percentage:.1f}%"
         )
+
+    # Leave the remaining KPI cards empty
+    # because Collection and Payment Coverage
+    # duplicate the Paid percentage.
 
     # ------------------------------------------------------
     # EMPTY REMAINING CARDS
