@@ -6,7 +6,34 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import requests
 
+# ==========================================================
+# ZOHO API AUTHENTICATION
+# ==========================================================
+
+def get_zoho_access_token():
+
+    client_id = st.secrets["zoho"]["client_id"]
+    client_secret = st.secrets["zoho"]["client_secret"]
+    refresh_token = st.secrets["zoho"]["refresh_token"]
+
+    response = requests.post(
+        "https://accounts.zoho.eu/oauth/v2/token",
+        params={
+            "refresh_token": refresh_token,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "refresh_token",
+        },
+        timeout=30
+    )
+
+    response.raise_for_status()
+
+    token_data = response.json()
+
+    return token_data["access_token"]
 # ----------------------------------------------------------
 # PAGE CONFIG
 # ----------------------------------------------------------
