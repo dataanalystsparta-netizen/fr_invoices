@@ -152,6 +152,22 @@ st.write("### API Invoice Columns")
 st.write(
     list(zoho_invoices.columns)
 )
+
+# ==========================================================
+# TEST SINGLE INVOICE DETAIL
+# ==========================================================
+
+if not zoho_invoices.empty:
+
+    test_invoice_id = zoho_invoices.iloc[0]["invoice_id"]
+
+    invoice_detail = zoho_api_get(
+        f"invoices/{test_invoice_id}"
+    )
+
+    st.write("### Single Invoice Detail")
+
+    st.json(invoice_detail)
 # ----------------------------------------------------------
 # PAGE CONFIG
 # ----------------------------------------------------------
