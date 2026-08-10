@@ -6,7 +6,22 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+# ==========================================================
+# ZOHO OAUTH CALLBACK
+# ==========================================================
 
+if "code" in st.query_params:
+
+    authorization_code = st.query_params["code"]
+
+    st.session_state["zoho_authorization_code"] = authorization_code
+
+    st.success("Zoho authorization successful!")
+
+    st.write(
+        "Authorization code received. "
+        "We can now exchange it for a refresh token."
+    )
 # ----------------------------------------------------------
 # PAGE CONFIG
 # ----------------------------------------------------------
