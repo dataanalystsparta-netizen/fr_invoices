@@ -106,7 +106,31 @@ def get_all_invoices():
         page += 1
 
     return pd.DataFrame(all_invoices)
+# ==========================================================
+# COMPARE API INVOICES WITH EXISTING EXCEL
+# ==========================================================
 
+excel_invoices = pd.read_excel(
+    "Invoice_zoho.xlsx"
+)
+
+excel_invoices.columns = (
+    excel_invoices.columns
+    .astype(str)
+    .str.strip()
+)
+
+st.write("### Existing Excel Invoice Columns")
+
+st.write(
+    list(excel_invoices.columns)
+)
+
+st.write("### API Invoice Columns")
+
+st.write(
+    list(zoho_invoices.columns)
+)
 # ==========================================================
 # TEST ZOHO INVOICE RETRIEVAL
 # ==========================================================
