@@ -297,6 +297,7 @@ def classify_service(item_name, item_desc):
         or "ad spent" in source_clean
         or "ad spends" in source_clean
         or "ppc management" in source_clean
+        or "management fee" in source_clean
     ):
         return "SEO", "Google Ads"
 
