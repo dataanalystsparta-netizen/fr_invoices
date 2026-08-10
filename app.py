@@ -119,12 +119,11 @@ st.success(
     f"Zoho returned {len(zoho_invoices):,} invoices."
 )
 
-st.write(
-    "Columns returned by Zoho:"
-)
+st.write("Sample invoices returned by Zoho:")
 
-st.write(
-    list(zoho_invoices.columns)
+st.dataframe(
+    zoho_invoices.head(10),
+    width="stretch"
 )
 # ----------------------------------------------------------
 # PAGE CONFIG
