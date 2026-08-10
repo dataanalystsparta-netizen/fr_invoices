@@ -968,23 +968,7 @@ else:
             f"{overdue_percentage:.1f}%"
         )
 
-    # ------------------------------------------------------
-    # Leave KPI 7 and 8 empty in percentage view
-    # ------------------------------------------------------
 
-    with c7:
-        kpi_card(
-            "💯 Invoice Coverage",
-            f"{paid_percentage:.1f}%"
-        )
-
-    with c8:
-        kpi_card(
-            "📊 Unpaid Coverage",
-            f"{outstanding_percentage:.1f}%"
-        )
-
-   
 
 # ----------------------------------------------------------
 # MONTHLY BREAKDOWN
