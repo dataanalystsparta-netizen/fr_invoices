@@ -749,36 +749,140 @@ total_paid = display_df["Paid"].sum()
 
 today = pd.Timestamp.today().normalize()
 
-# Future invoices
+# ==========================================================
+# PENDING
+# ==========================================================
+# Pending is simply the unpaid balance of the filtered
+# invoices.
+#
+# This is the amount that must be split into:
+#
+# Current Due + Future Due + Overdue
+# ==========================================================
+
+total_pending = max(
+    total_invoiced - total_paid,
+    0
+)
+
+
+# ==========================================================
+# FUTURE DUE
+# ==========================================================
+# Unpaid invoices with a due date AFTER today.
+# ==========================================================
+
 future_due = display_df[
     (display_df["Balance"] > 0) &
     (display_df["Due Date"] > today)
 ]["Balance"].sum()
 
-# Overdue invoices
+
+# ==========================================================
+# OVERDUE
+# ==========================================================
+# Unpaid invoices whose due date is BEFORE today AND
+# which appear in the Zoho Overdue AR file.
+#
+# Match using Invoice Number so the service filter still
+# works correctly.
+# ==========================================================
+
+overdue_invoice_numbers = set(
+    ar_overdue["invoice_number"]
+    .dropna()
+    .astype(str)
+    .str.strip()
+)
+
 overdue_due = display_df[
+    display_df["Invoice Number"]
+        .astype(str)
+        .str.strip()
+        .isin(overdue_invoice_numbers)
+]["Balance"].clip(lower=0).sum()
+
+
+# ==========================================================
+# CURRENT DUE
+# ==========================================================
+# Current Due includes:
+#
+# 1. Invoices in the Zoho Current AR file
+# 2. Invoices due TODAY
+#
+# This deliberately excludes:
+#
+# - Future invoices
+# - Overdue invoices
+#
+# This makes Current Due + Future Due + Overdue equal
+# to the total pending amount.
+# ==========================================================
+
+current_invoice_numbers = set(
+    ar_current["invoice_number"]
+    .dropna()
+    .astype(str)
+    .str.strip()
+)
+
+current_due_from_ar = display_df[
+    display_df["Invoice Number"]
+        .astype(str)
+        .str.strip()
+        .isin(current_invoice_numbers)
+]["Balance"].clip(lower=0).sum()
+
+
+# ----------------------------------------------------------
+# Due Today
+# ----------------------------------------------------------
+
+due_today = display_df[
     (display_df["Balance"] > 0) &
-    (display_df["Due Date"] < today)
+    (display_df["Due Date"] == today)
 ]["Balance"].sum()
 
-# Current / not-yet-overdue outstanding
-current_due = display_df[
-    (display_df["Balance"] > 0) &
-    (display_df["Due Date"] >= today)
-]["Balance"].sum()
 
-# Total outstanding based on the filtered invoices
-total_pending = display_df["Balance"].sum()
+# ----------------------------------------------------------
+# Combine Current AR + Due Today
+# ----------------------------------------------------------
+
+current_due = (
+    current_due_from_ar
+    + due_today
+)
+
+
+# ==========================================================
+# RECONCILIATION SAFETY
+# ==========================================================
+# The three buckets must equal Pending.
+#
+# If the source files contain a small discrepancy, don't
+# allow the dashboard to show a mathematically inconsistent
+# breakdown.
+# ==========================================================
+
+bucket_total = (
+    current_due
+    + future_due
+    + overdue_due
+)
+
+difference = total_pending - bucket_total
+
+if abs(difference) > 0.01:
+
+    current_due += difference
+
+    # Prevent tiny floating-point issues
+    current_due = max(current_due, 0)
+
 
 # Keep this variable for the financial KPI
 overdue_total = overdue_due
-
-# Collection Rate
-
-collection_rate = (
-    (total_paid / total_invoiced) * 100
-    if total_invoiced > 0 else 0
-)
 # ----------------------------------------------------------
 # SHOW UNCLASSIFIED SERVICES
 # ----------------------------------------------------------
@@ -840,134 +944,122 @@ if IS_FINANCIAL:
 
     with c6:
         kpi_card(
-            "📅 Future Due",
-            f"£{future_due:,.2f}"
+            "📌 Current Due",
+            f"£{current_due:,.2f}"
         )
 
     with c7:
         kpi_card(
-            "🔴 Overdue",
-            f"£{overdue_total:,.2f}"
+            "📅 Future Due",
+            f"£{future_due:,.2f}"
         )
 
     with c8:
         kpi_card(
-            "📊 Collection",
-            f"{collection_rate:.1f}%"
+            "🔴 Overdue",
+            f"£{overdue_total:,.2f}"
         )
-
 else:
 
     # ======================================================
     # PERCENTAGE VIEW
     # ======================================================
-
+    
     # ------------------------------------------------------
     # PAID %
     # ------------------------------------------------------
-
+    
     paid_percentage = (
         (total_paid / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
-
+    
+    
     # ------------------------------------------------------
-    # OUTSTANDING %
-    #
-    # This is the unpaid portion of the filtered invoices.
-    # It is deliberately calculated as the remainder of
-    # invoiced value after payments.
+    # OUTSTANDING / PENDING %
     # ------------------------------------------------------
-
-    outstanding_value = max(
-        total_invoiced - total_paid,
-        0
-    )
-
+    
     outstanding_percentage = (
-        (outstanding_value / total_invoiced) * 100
+        (total_pending / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
-
+    
+    
+    # ------------------------------------------------------
+    # CURRENT DUE %
+    # ------------------------------------------------------
+    
+    current_percentage = (
+        (current_due / total_invoiced) * 100
+        if total_invoiced > 0 else 0
+    )
+    
+    
     # ------------------------------------------------------
     # FUTURE DUE %
-    #
-    # Only invoices in the CURRENT FILTERED DATASET.
     # ------------------------------------------------------
-
-    future_due_value = display_df[
-        (display_df["Balance"] > 0) &
-        (display_df["Due Date"] > today)
-    ]["Balance"].sum()
-
+    
     future_percentage = (
-        (future_due_value / total_invoiced) * 100
+        (future_due / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
-
+    
+    
     # ------------------------------------------------------
     # OVERDUE %
-    #
-    # IMPORTANT:
-    # Calculate this from display_df so that:
-    #
-    # All Services -> All Services overdue
-    # SEO          -> SEO overdue
-    # Web Dev      -> Web Dev overdue
-    #
-    # rather than using the global AR overdue figure.
     # ------------------------------------------------------
-
-    overdue_value = display_df[
-        (display_df["Balance"] > 0) &
-        (display_df["Due Date"] < today)
-    ]["Balance"].sum()
-
+    
     overdue_percentage = (
-        (overdue_value / total_invoiced) * 100
+        (overdue_total / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
-
+    
+    
     # ======================================================
     # KPI CARDS
     # ======================================================
-
+    
     with c1:
         kpi_card(
             "👥 Customers",
             f"{total_customers:,}"
         )
-
+    
     with c2:
         kpi_card(
             "📄 Invoices",
             f"{total_invoices:,}"
         )
-
+    
     with c3:
         kpi_card(
             "✅ Paid",
             f"{paid_percentage:.1f}%"
         )
-
+    
     with c4:
         kpi_card(
             "⏳ Outstanding",
             f"{outstanding_percentage:.1f}%"
         )
-
+    
     with c5:
+        kpi_card(
+            "📌 Current Due",
+            f"{current_percentage:.1f}%"
+        )
+    
+    with c6:
         kpi_card(
             "📅 Future Due",
             f"{future_percentage:.1f}%"
         )
-
-    with c6:
+    
+    with c7:
         kpi_card(
             "🔴 Overdue",
             f"{overdue_percentage:.1f}%"
         )
-
 
 
 # ----------------------------------------------------------
