@@ -899,7 +899,7 @@ if selected_service == "Unclassified":
 # KPI CARDS
 # ==========================================================
 
-c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
+c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns(9)
 
 if IS_FINANCIAL:
 
@@ -935,7 +935,7 @@ if IS_FINANCIAL:
 
     with c6:
         kpi_card(
-            "📌 Current Due",
+            "📋 Current Due",
             f"£{current_due:,.2f}"
         )
 
@@ -948,7 +948,13 @@ if IS_FINANCIAL:
     with c8:
         kpi_card(
             "🔴 Overdue",
-            f"£{overdue_total:,.2f}"
+            f"£{overdue_due:,.2f}"
+        )
+
+    with c9:
+        kpi_card(
+            "📊 Collection",
+            f"{collection_rate:.1f}%"
         )
 else:
 
