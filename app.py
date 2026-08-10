@@ -843,78 +843,132 @@ if IS_FINANCIAL:
         )
 
 else:
+    
+ ```python
+else:
+
+    # ======================================================
+    # PERCENTAGE VIEW
+    # ======================================================
 
     # ------------------------------------------------------
-    # PERCENTAGE VIEW
+    # PAYMENT %
     # ------------------------------------------------------
 
     paid_percentage = (
         (total_paid / total_invoiced) * 100
-        if total_invoiced > 0 else 0
+        if total_invoiced > 0
+        else 0
     )
+
+    # ------------------------------------------------------
+    # OUTSTANDING %
+    # ------------------------------------------------------
 
     outstanding_percentage = (
         ((total_invoiced - total_paid) / total_invoiced) * 100
-        if total_invoiced > 0 else 0
+        if total_invoiced > 0
+        else 0
     )
+
+    # ------------------------------------------------------
+    # FUTURE DUE %
+    # ------------------------------------------------------
 
     future_percentage = (
         (future_due / total_invoiced) * 100
-        if total_invoiced > 0 else 0
+        if total_invoiced > 0
+        else 0
     )
+
+    # ------------------------------------------------------
+    # OVERDUE %
+    # ------------------------------------------------------
 
     overdue_percentage = (
         (overdue_total / total_invoiced) * 100
-        if total_invoiced > 0 else 0
+        if total_invoiced > 0
+        else 0
     )
 
+    # ======================================================
+    # PERCENTAGE KPI CARDS
+    # ======================================================
+
+    # ------------------------------------------------------
+    # CUSTOMERS
+    # ------------------------------------------------------
+
     with c1:
+
         kpi_card(
             "👥 Customers",
             f"{total_customers:,}"
         )
 
+    # ------------------------------------------------------
+    # INVOICES
+    # ------------------------------------------------------
+
     with c2:
+
         kpi_card(
             "📄 Invoices",
             f"{total_invoices:,}"
         )
 
+    # ------------------------------------------------------
+    # PAID
+    # ------------------------------------------------------
+
     with c3:
+
         kpi_card(
             "✅ Paid",
             f"{paid_percentage:.1f}%"
         )
 
+    # ------------------------------------------------------
+    # OUTSTANDING
+    # ------------------------------------------------------
+
     with c4:
+
         kpi_card(
             "⏳ Outstanding",
             f"{outstanding_percentage:.1f}%"
         )
 
+    # ------------------------------------------------------
+    # FUTURE DUE
+    # ------------------------------------------------------
+
     with c5:
+
         kpi_card(
             "📅 Future Due",
             f"{future_percentage:.1f}%"
         )
 
+    # ------------------------------------------------------
+    # OVERDUE
+    # ------------------------------------------------------
+
     with c6:
+
         kpi_card(
             "🔴 Overdue",
             f"{overdue_percentage:.1f}%"
         )
 
-    with c7:
-        kpi_card(
-            "📊 Collection",
-            f"{collection_rate:.1f}%"
-        )
+    # ------------------------------------------------------
+    # EMPTY REMAINING CARDS
+    # ------------------------------------------------------
+    # c7 and c8 are intentionally left blank
+    # so the percentage view does not repeat KPIs.
 
-    with c8:
-        kpi_card(
-            "📈 Payment Coverage",
-            f"{paid_percentage:.1f}%"
-        )
+   
+
 # ----------------------------------------------------------
 # MONTHLY BREAKDOWN
 # ----------------------------------------------------------
