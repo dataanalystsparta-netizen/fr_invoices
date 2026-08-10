@@ -743,21 +743,35 @@ total_invoiced = display_df["Total"].sum()
 
 total_paid = display_df["Paid"].sum()
 
-# Live AR Snapshot (do not date filter)
-
-current_total = ar_current["balance"].sum()
-overdue_total = ar_overdue["balance"].sum()
-
-total_pending = current_total + overdue_total
-
-# Future invoices (not yet due)
+# ----------------------------------------------------------
+# AR CALCULATIONS FOR CURRENT FILTERED VIEW
+# ----------------------------------------------------------
 
 today = pd.Timestamp.today().normalize()
 
+# Future invoices
 future_due = display_df[
     (display_df["Balance"] > 0) &
     (display_df["Due Date"] > today)
 ]["Balance"].sum()
+
+# Overdue invoices
+overdue_due = display_df[
+    (display_df["Balance"] > 0) &
+    (display_df["Due Date"] < today)
+]["Balance"].sum()
+
+# Current / not-yet-overdue outstanding
+current_due = display_df[
+    (display_df["Balance"] > 0) &
+    (display_df["Due Date"] >= today)
+]["Balance"].sum()
+
+# Total outstanding based on the filtered invoices
+total_pending = display_df["Balance"].sum()
+
+# Keep this variable for the financial KPI
+overdue_total = overdue_due
 
 # Collection Rate
 
