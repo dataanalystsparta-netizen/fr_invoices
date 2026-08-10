@@ -64,6 +64,48 @@ def zoho_api_get(endpoint, params=None):
     response.raise_for_status()
 
     return response.json()
+
+
+# ==========================================================
+# GET ALL ZOHO BOOKS INVOICES
+# ==========================================================
+
+def get_all_invoices():
+
+    all_invoices = []
+
+    page = 1
+    per_page = 200
+
+    while True:
+
+        data = zoho_api_get(
+            "invoices",
+            {
+                "page": page,
+                "per_page": per_page
+            }
+        )
+
+        invoices = data.get(
+            "invoices",
+            []
+        )
+
+        all_invoices.extend(invoices)
+
+        if not data.get(
+            "page_context",
+            {}
+        ).get(
+            "has_more_page",
+            False
+        ):
+            break
+
+        page += 1
+
+    return pd.DataFrame(all_invoices)
 # ----------------------------------------------------------
 # PAGE CONFIG
 # ----------------------------------------------------------
