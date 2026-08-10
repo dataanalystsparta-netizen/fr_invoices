@@ -7,13 +7,34 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
-
 # ==========================================================
 # ZOHO API AUTHENTICATION
 # ==========================================================
 
-@st.cache_data(ttl=3300, show_spinner=False)
 def get_zoho_access_token():
+
+    # ------------------------------------------------------
+    # Check for an existing token in session state
+    # ------------------------------------------------------
+
+    if (
+        "zoho_access_token" in st.session_state
+        and "zoho_token_time" in st.session_state
+    ):
+
+        token_age = (
+            pd.Timestamp.now().timestamp()
+            - st.session_state["zoho_token_time"]
+        )
+
+        # Reuse token for 50 minutes
+        if token_age < 3000:
+
+            return st.session_state["zoho_access_token"]
+
+    # ------------------------------------------------------
+    # Refresh token
+    # ------------------------------------------------------
 
     client_id = st.secrets["zoho"]["client_id"]
     client_secret = st.secrets["zoho"]["client_secret"]
@@ -30,6 +51,10 @@ def get_zoho_access_token():
         timeout=30
     )
 
+    # ------------------------------------------------------
+    # Handle refresh failure
+    # ------------------------------------------------------
+
     if not response.ok:
 
         st.error("Zoho access token refresh failed.")
@@ -43,6 +68,10 @@ def get_zoho_access_token():
 
     token_data = response.json()
 
+    # ------------------------------------------------------
+    # Validate response
+    # ------------------------------------------------------
+
     if "access_token" not in token_data:
 
         st.error("Zoho did not return an access token.")
@@ -51,7 +80,19 @@ def get_zoho_access_token():
 
         st.stop()
 
-    return token_data["access_token"]
+    # ------------------------------------------------------
+    # Store token
+    # ------------------------------------------------------
+
+    access_token = token_data["access_token"]
+
+    st.session_state["zoho_access_token"] = access_token
+
+    st.session_state["zoho_token_time"] = (
+        pd.Timestamp.now().timestamp()
+    )
+
+    return access_token
 
 
 # ==========================================================
@@ -73,38 +114,71 @@ def zoho_api_get(endpoint, params=None):
 
     params["organization_id"] = organization_id
 
+    url = (
+        f"https://www.zohoapis.eu/books/v3/{endpoint}"
+    )
+
+    headers = {
+        "Authorization": f"Zoho-oauthtoken {access_token}"
+    }
+
     response = requests.get(
-        f"https://www.zohoapis.eu/books/v3/{endpoint}",
-        headers={
-            "Authorization": f"Zoho-oauthtoken {access_token}"
-        },
+        url,
+        headers=headers,
         params=params,
         timeout=30
     )
 
-    # ------------------------------------------------------
-    # ACCESS TOKEN EXPIRED
-    # ------------------------------------------------------
+    # ======================================================
+    # TOKEN EXPIRED / INVALID
+    # ======================================================
 
     if response.status_code == 401:
 
-        # Clear cached token
-        get_zoho_access_token.clear()
+        # Remove cached token
+        st.session_state.pop(
+            "zoho_access_token",
+            None
+        )
 
-        # Get a fresh token
+        st.session_state.pop(
+            "zoho_token_time",
+            None
+        )
+
+        # Get a new token
         access_token = get_zoho_access_token()
 
-        # Retry the API request once
+        headers = {
+            "Authorization":
+                f"Zoho-oauthtoken {access_token}"
+        }
+
+        # Retry ONCE
         response = requests.get(
-            f"https://www.zohoapis.eu/books/v3/{endpoint}",
-            headers={
-                "Authorization": f"Zoho-oauthtoken {access_token}"
-            },
+            url,
+            headers=headers,
             params=params,
             timeout=30
         )
 
-    response.raise_for_status()
+    # ======================================================
+    # HANDLE OTHER ERRORS
+    # ======================================================
+
+    if not response.ok:
+
+        st.error(
+            f"Zoho API request failed: "
+            f"{response.status_code}"
+        )
+
+        try:
+            st.json(response.json())
+        except Exception:
+            st.code(response.text)
+
+        st.stop()
 
     return response.json()
 
