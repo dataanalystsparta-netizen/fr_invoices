@@ -34,6 +34,36 @@ def get_zoho_access_token():
     token_data = response.json()
 
     return token_data["access_token"]
+
+# ==========================================================
+# ZOHO API REQUEST
+# ==========================================================
+
+def zoho_api_get(endpoint, params=None):
+
+    access_token = get_zoho_access_token()
+
+    organization_id = (
+        st.secrets["zoho"]["organization_id"]
+    )
+
+    if params is None:
+        params = {}
+
+    params["organization_id"] = organization_id
+
+    response = requests.get(
+        f"https://www.zohoapis.eu/books/v3/{endpoint}",
+        headers={
+            "Authorization": f"Zoho-oauthtoken {access_token}"
+        },
+        params=params,
+        timeout=30
+    )
+
+    response.raise_for_status()
+
+    return response.json()
 # ----------------------------------------------------------
 # PAGE CONFIG
 # ----------------------------------------------------------
