@@ -128,6 +128,57 @@ if "zoho" in st.secrets:
         )
 
         st.json(token_response.json())
+
+
+
+# ==========================================================
+# TEST ZOHO INVOICES API
+# ==========================================================
+
+if "access_token" in token_data:
+
+    access_token = token_data["access_token"]
+
+    organization_id = (
+        st.secrets["zoho"]["organization_id"]
+    )
+
+    invoice_response = requests.get(
+        "https://www.zohoapis.eu/books/v3/invoices",
+        headers={
+            "Authorization": f"Zoho-oauthtoken {access_token}"
+        },
+        params={
+            "organization_id": organization_id,
+            "per_page": 5
+        },
+        timeout=30
+    )
+
+    if invoice_response.ok:
+
+        invoice_data = invoice_response.json()
+
+        st.success(
+            "Zoho Books invoice API is working!"
+        )
+
+        st.write(
+            "Invoices returned:",
+            len(invoice_data.get("invoices", []))
+        )
+
+    else:
+
+        st.error(
+            "Zoho Books invoice API request failed."
+        )
+
+        st.write(
+            invoice_response.status_code
+        )
+
+        st.json(invoice_response.json())
 # ----------------------------------------------------------
 # PAGE CONFIG
 # ----------------------------------------------------------
