@@ -223,75 +223,14 @@ def get_all_invoices():
 
     return pd.DataFrame(all_invoices)
 
-# ==========================================================
-# TEST ZOHO INVOICE RETRIEVAL
-# ==========================================================
-
-with st.spinner("Retrieving invoices from Zoho Books..."):
-
-    zoho_invoices = get_all_invoices()
-
-st.success(
-    f"Zoho returned {len(zoho_invoices):,} invoices."
-)
-
-st.write("Sample invoices returned by Zoho:")
-
-st.dataframe(
-    zoho_invoices.head(10),
-    width="stretch"
-)
-
 
 # ==========================================================
-# COMPARE API INVOICES WITH EXISTING EXCEL
-# ==========================================================
-
-excel_invoices = pd.read_excel(
-    "Invoice_zoho.xlsx"
-)
-
-excel_invoices.columns = (
-    excel_invoices.columns
-    .astype(str)
-    .str.strip()
-)
-
-st.write("### Existing Excel Invoice Columns")
-
-st.write(
-    list(excel_invoices.columns)
-)
-
-st.write("### API Invoice Columns")
-
-st.write(
-    list(zoho_invoices.columns)
-)
-
-# ==========================================================
-# TEST SINGLE INVOICE DETAIL
-# ==========================================================
-
-if not zoho_invoices.empty:
-
-    test_invoice_id = zoho_invoices.iloc[0]["invoice_id"]
-
-    invoice_detail = zoho_api_get(
-        f"invoices/{test_invoice_id}"
-    )
-
-    st.write("### Single Invoice Detail")
-
-    st.json(invoice_detail)
-
-# ==========================================================
-# TEST - RETRIEVE ONE ZOHO BOOKS PAYMENT
+# GET ONE PAYMENT
 # ==========================================================
 
 def get_one_payment():
 
-    data = zoho_api_get(
+    return zoho_api_get(
         "customerpayments",
         {
             "page": 1,
@@ -299,16 +238,103 @@ def get_one_payment():
         }
     )
 
-    return data
+
+# ==========================================================
+# ZOHO API TEST PANEL
+# ==========================================================
+
+st.title("Zoho Books API Test")
+
+# ----------------------------------------------------------
+# Retrieve invoices
+# ----------------------------------------------------------
+
+st.subheader("1. Invoice API")
+
+if st.button("📄 Retrieve Invoices"):
+
+    with st.spinner(
+        "Retrieving invoices from Zoho Books..."
+    ):
+
+        zoho_invoices = get_all_invoices()
+
+    st.success(
+        f"Zoho returned "
+        f"{len(zoho_invoices):,} invoices."
+    )
+
+    st.dataframe(
+        zoho_invoices.head(10),
+        width="stretch"
+    )
 
 
-st.subheader("Zoho Books Payment API Test")
+# ----------------------------------------------------------
+# Retrieve one invoice
+# ----------------------------------------------------------
 
-if st.button("🔎 Retrieve One Payment"):
+st.subheader("2. Single Invoice API")
 
-    with st.spinner("Retrieving one payment from Zoho Books..."):
+if st.button("🔎 Retrieve One Invoice"):
+
+    with st.spinner(
+        "Retrieving one invoice from Zoho Books..."
+    ):
+
+        # First get one invoice
+        invoice_list = zoho_api_get(
+            "invoices",
+            {
+                "page": 1,
+                "per_page": 1
+            }
+        )
+
+        invoices = invoice_list.get(
+            "invoices",
+            []
+        )
+
+        if invoices:
+
+            invoice_id = invoices[0]["invoice_id"]
+
+            invoice_detail = zoho_api_get(
+                f"invoices/{invoice_id}"
+            )
+
+            st.success(
+                f"Invoice retrieved: "
+                f"{invoices[0].get('invoice_number', '')}"
+            )
+
+            st.json(invoice_detail)
+
+        else:
+
+            st.warning(
+                "Zoho did not return any invoices."
+            )
+
+
+# ----------------------------------------------------------
+# Retrieve one payment
+# ----------------------------------------------------------
+
+st.subheader("3. Payment API")
+
+if st.button("💳 Retrieve One Payment"):
+
+    with st.spinner(
+        "Retrieving one payment from Zoho Books..."
+    ):
 
         payment_data = get_one_payment()
+
+    st.success(
+        "Payment API request completed."
+    )
 
     st.json(payment_data)
 # ----------------------------------------------------------
