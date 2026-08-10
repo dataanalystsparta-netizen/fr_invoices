@@ -29,12 +29,25 @@ def get_zoho_access_token():
         timeout=30
     )
 
-    response.raise_for_status()
-
+    if not response.ok:
+    
+        st.error("Zoho access token refresh failed.")
+    
+        st.json(response.json())
+    
+        st.stop()
+    
     token_data = response.json()
-
+    
+    if "access_token" not in token_data:
+    
+        st.error("Zoho did not return an access token.")
+    
+        st.json(token_data)
+    
+        st.stop()
+    
     return token_data["access_token"]
-
 # ==========================================================
 # ZOHO API REQUEST
 # ==========================================================
