@@ -12,6 +12,7 @@ import requests
 # ZOHO API AUTHENTICATION
 # ==========================================================
 
+@st.cache_data(ttl=3300, show_spinner=False)
 def get_zoho_access_token():
 
     client_id = st.secrets["zoho"]["client_id"]
@@ -30,24 +31,29 @@ def get_zoho_access_token():
     )
 
     if not response.ok:
-    
+
         st.error("Zoho access token refresh failed.")
-    
-        st.json(response.json())
-    
+
+        try:
+            st.json(response.json())
+        except Exception:
+            st.code(response.text)
+
         st.stop()
-    
+
     token_data = response.json()
-    
+
     if "access_token" not in token_data:
-    
+
         st.error("Zoho did not return an access token.")
-    
+
         st.json(token_data)
-    
+
         st.stop()
-    
+
     return token_data["access_token"]
+
+
 # ==========================================================
 # ZOHO API REQUEST
 # ==========================================================
@@ -63,6 +69,8 @@ def zoho_api_get(endpoint, params=None):
     if params is None:
         params = {}
 
+    params = params.copy()
+
     params["organization_id"] = organization_id
 
     response = requests.get(
@@ -74,10 +82,31 @@ def zoho_api_get(endpoint, params=None):
         timeout=30
     )
 
+    # ------------------------------------------------------
+    # ACCESS TOKEN EXPIRED
+    # ------------------------------------------------------
+
+    if response.status_code == 401:
+
+        # Clear cached token
+        get_zoho_access_token.clear()
+
+        # Get a fresh token
+        access_token = get_zoho_access_token()
+
+        # Retry the API request once
+        response = requests.get(
+            f"https://www.zohoapis.eu/books/v3/{endpoint}",
+            headers={
+                "Authorization": f"Zoho-oauthtoken {access_token}"
+            },
+            params=params,
+            timeout=30
+        )
+
     response.raise_for_status()
 
     return response.json()
-
 
 # ==========================================================
 # GET ALL ZOHO BOOKS INVOICES
