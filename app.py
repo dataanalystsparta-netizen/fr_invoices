@@ -750,26 +750,28 @@ total_paid = display_df["Paid"].sum()
 today = pd.Timestamp.today().normalize()
 
 # ==========================================================
-# PENDING
-# ==========================================================
-# Pending is simply the unpaid balance of the filtered
-# invoices.
-#
-# This is the amount that must be split into:
-#
-# Current Due + Future Due + Overdue
+# INVOICE ENTITY IDS FOR CURRENT FILTER
 # ==========================================================
 
-total_pending = max(
-    total_invoiced - total_paid,
-    0
-)
+# The AR files use entity_id to identify the invoice.
+# We therefore use entity_id rather than Invoice Number.
+
+if "entity_id" in display_df.columns:
+
+    filtered_entity_ids = set(
+        display_df["entity_id"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+    )
+
+else:
+
+    filtered_entity_ids = set()
 
 
 # ==========================================================
 # FUTURE DUE
-# ==========================================================
-# Unpaid invoices with a due date AFTER today.
 # ==========================================================
 
 future_due = display_df[
@@ -779,65 +781,8 @@ future_due = display_df[
 
 
 # ==========================================================
-# OVERDUE
+# DUE TODAY
 # ==========================================================
-# Unpaid invoices whose due date is BEFORE today AND
-# which appear in the Zoho Overdue AR file.
-#
-# Match using Invoice Number so the service filter still
-# works correctly.
-# ==========================================================
-
-overdue_invoice_numbers = set(
-    ar_overdue["invoice_number"]
-    .dropna()
-    .astype(str)
-    .str.strip()
-)
-
-overdue_due = display_df[
-    display_df["Invoice Number"]
-        .astype(str)
-        .str.strip()
-        .isin(overdue_invoice_numbers)
-]["Balance"].clip(lower=0).sum()
-
-
-# ==========================================================
-# CURRENT DUE
-# ==========================================================
-# Current Due includes:
-#
-# 1. Invoices in the Zoho Current AR file
-# 2. Invoices due TODAY
-#
-# This deliberately excludes:
-#
-# - Future invoices
-# - Overdue invoices
-#
-# This makes Current Due + Future Due + Overdue equal
-# to the total pending amount.
-# ==========================================================
-
-current_invoice_numbers = set(
-    ar_current["invoice_number"]
-    .dropna()
-    .astype(str)
-    .str.strip()
-)
-
-current_due_from_ar = display_df[
-    display_df["Invoice Number"]
-        .astype(str)
-        .str.strip()
-        .isin(current_invoice_numbers)
-]["Balance"].clip(lower=0).sum()
-
-
-# ----------------------------------------------------------
-# Due Today
-# ----------------------------------------------------------
 
 due_today = display_df[
     (display_df["Balance"] > 0) &
@@ -845,8 +790,40 @@ due_today = display_df[
 ]["Balance"].sum()
 
 
+# ==========================================================
+# CURRENT DUE
+#
+# Comes from AR Current.
+#
+# AR Current contains invoices which are due/current
+# according to Zoho but are not yet in the overdue file.
+# ==========================================================
+
+if (
+    "entity_id" in ar_current.columns
+    and filtered_entity_ids
+):
+
+    current_ar_filtered = ar_current[
+        ar_current["entity_id"]
+        .astype(str)
+        .str.strip()
+        .isin(filtered_entity_ids)
+    ].copy()
+
+    current_due_from_ar = (
+        current_ar_filtered["balance"].sum()
+    )
+
+else:
+
+    current_due_from_ar = 0
+
+
 # ----------------------------------------------------------
-# Combine Current AR + Due Today
+# Add invoices due TODAY to Current Due
+#
+# These were previously falling between the buckets.
 # ----------------------------------------------------------
 
 current_due = (
@@ -856,29 +833,43 @@ current_due = (
 
 
 # ==========================================================
-# RECONCILIATION SAFETY
-# ==========================================================
-# The three buckets must equal Pending.
+# OVERDUE
 #
-# If the source files contain a small discrepancy, don't
-# allow the dashboard to show a mathematically inconsistent
-# breakdown.
+# Comes from AR Overdue.
 # ==========================================================
 
-bucket_total = (
+if (
+    "entity_id" in ar_overdue.columns
+    and filtered_entity_ids
+):
+
+    overdue_ar_filtered = ar_overdue[
+        ar_overdue["entity_id"]
+        .astype(str)
+        .str.strip()
+        .isin(filtered_entity_ids)
+    ].copy()
+
+    overdue_due = (
+        overdue_ar_filtered["balance"].sum()
+    )
+
+else:
+
+    overdue_due = 0
+
+
+# ==========================================================
+# TOTAL PENDING
+#
+# Pending must equal the three AR buckets.
+# ==========================================================
+
+total_pending = (
     current_due
     + future_due
     + overdue_due
 )
-
-difference = total_pending - bucket_total
-
-if abs(difference) > 0.01:
-
-    current_due += difference
-
-    # Prevent tiny floating-point issues
-    current_due = max(current_due, 0)
 
 
 # Keep this variable for the financial KPI
