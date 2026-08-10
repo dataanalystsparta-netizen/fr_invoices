@@ -181,6 +181,33 @@ if not zoho_invoices.empty:
     st.write("### Single Invoice Detail")
 
     st.json(invoice_detail)
+
+# ==========================================================
+# TEST - RETRIEVE ONE ZOHO BOOKS PAYMENT
+# ==========================================================
+
+def get_one_payment():
+
+    data = zoho_api_get(
+        "customerpayments",
+        {
+            "page": 1,
+            "per_page": 1
+        }
+    )
+
+    return data
+
+
+st.subheader("Zoho Books Payment API Test")
+
+if st.button("🔎 Retrieve One Payment"):
+
+    with st.spinner("Retrieving one payment from Zoho Books..."):
+
+        payment_data = get_one_payment()
+
+    st.json(payment_data)
 # ----------------------------------------------------------
 # PAGE CONFIG
 # ----------------------------------------------------------
