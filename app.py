@@ -1086,7 +1086,7 @@ st.write(
     f"Unclassified Outstanding Invoices: "
     f"{len(unclassified_outstanding)}"
 )
-```python
+
 # ==========================================================
 # PENDING RECONCILIATION DIAGNOSTIC
 # ==========================================================
@@ -1223,7 +1223,7 @@ else:
         "✅ Pending reconciles exactly: "
         f"£{expected_pending:,.2f}"
     )
-```
+
 
 
 # ==========================================================
