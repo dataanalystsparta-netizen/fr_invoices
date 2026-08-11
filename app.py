@@ -622,6 +622,88 @@ def load_data():
     )
     
     invoices["Paid"] = invoices["Paid"].fillna(0)
+
+        # ==========================================================
+    # RECONCILIATION: INVOICE TOTAL vs PAYMENTS vs BALANCE
+    # ==========================================================
+    
+    invoices["Calculated Outstanding"] = (
+        invoices["Total"] - invoices["Paid"]
+    )
+    
+    invoices["Balance Difference"] = (
+        invoices["Calculated Outstanding"]
+        - invoices["Balance"]
+    )
+    
+    reconciliation_difference = (
+        invoices["Balance Difference"].sum()
+    )
+    
+    print("=" * 70)
+    print("INVOICE / PAYMENT / BALANCE RECONCILIATION")
+    print("=" * 70)
+    
+    print(
+        f"Invoice Total       : £{invoices['Total'].sum():,.2f}"
+    )
+    
+    print(
+        f"Payments Matched    : £{invoices['Paid'].sum():,.2f}"
+    )
+    
+    print(
+        f"Total - Paid        : "
+        f"£{invoices['Calculated Outstanding'].sum():,.2f}"
+    )
+    
+    print(
+        f"Invoice Balance     : "
+        f"£{invoices['Balance'].sum():,.2f}"
+    )
+    
+    print(
+        f"Difference          : "
+        f"£{reconciliation_difference:,.2f}"
+    )
+    
+    print("=" * 70)
+        # ==========================================================
+    # SHOW INVOICES WHERE TOTAL - PAID != BALANCE
+    # ==========================================================
+    
+    reconciliation_issues = invoices[
+        invoices["Balance Difference"].abs() > 0.01
+    ].copy()
+    
+    print(
+        f"Invoices with reconciliation differences: "
+        f"{len(reconciliation_issues):,}"
+    )
+    
+    if not reconciliation_issues.empty:
+    
+        print(
+            reconciliation_issues[
+                [
+                    "Invoice Number",
+                    "entity_id",
+                    "Customer Name",
+                    "Total",
+                    "Paid",
+                    "Calculated Outstanding",
+                    "Balance",
+                    "Balance Difference"
+                ]
+            ].to_string(index=False)
+        )
+    
+        
+
+
+
+
+    
         # ------------------------------------------------------
     # CALCULATED OUTSTANDING
     # ------------------------------------------------------
