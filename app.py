@@ -846,10 +846,20 @@ collection_rate = (
     else 0
 )
 # ----------------------------------------------------------
-# AR CALCULATIONS FROM INVOICE DATA
+# AR CALCULATIONS FROM DEDUPLICATED INVOICE DATA
 # ----------------------------------------------------------
 
 today = pd.Timestamp.today().normalize()
+
+# ==========================================================
+# IMPORTANT:
+# display_df comes from "invoices", which has already had
+# duplicate Invoice Numbers removed in load_data().
+#
+# Therefore ALL AR calculations below are based on the
+# deduplicated invoice population.
+# ==========================================================
+
 
 # ==========================================================
 # OVERDUE
@@ -857,10 +867,12 @@ today = pd.Timestamp.today().normalize()
 # Anything due today or earlier and still unpaid.
 # ==========================================================
 
-overdue_due = display_df[
+overdue_df = display_df[
     (display_df["Balance"] > 0) &
     (display_df["Due Date"] <= today)
-]["Balance"].sum()
+].copy()
+
+overdue_due = overdue_df["Balance"].sum()
 
 
 # ==========================================================
@@ -869,34 +881,60 @@ overdue_due = display_df[
 # Anything not yet due and still unpaid.
 # ==========================================================
 
-future_due = display_df[
+future_df = display_df[
     (display_df["Balance"] > 0) &
     (display_df["Due Date"] > today)
-]["Balance"].sum()
+].copy()
+
+future_due = future_df["Balance"].sum()
+
+
 # ==========================================================
-# PENDING RECONCILIATION DIAGNOSTIC
+# TOTAL PENDING
+#
+# Because every unpaid invoice is either:
+#
+#   1. Overdue
+#   2. Future Due
+#
+# Pending is simply the sum of the two.
 # ==========================================================
 
-display_df["Calculated Outstanding"] = (
-    display_df["Total"] - display_df["Paid"]
-).clip(lower=0)
-
-expected_pending = (
-    display_df["Calculated Outstanding"].sum()
+total_pending = (
+    overdue_due
+    + future_due
 )
 
-calculated_pending = (
-    future_due + overdue_due
+
+# ==========================================================
+# PENDING RECONCILIATION
+#
+# Compare the actual Invoice Balance against the
+# Future + Overdue calculation.
+# ==========================================================
+
+invoice_balance = (
+    display_df["Balance"]
+    .clip(lower=0)
+    .sum()
 )
+
+calculated_pending = total_pending
 
 difference = (
-    expected_pending - calculated_pending
+    invoice_balance
+    - calculated_pending
 )
+
+
+# ==========================================================
+# DIAGNOSTIC
+# ==========================================================
 
 st.write("### 🔎 Pending Reconciliation")
 
 st.write(
-    f"Calculated Outstanding: £{expected_pending:,.2f}"
+    f"Invoice Balance: £{invoice_balance:,.2f}"
 )
 
 st.write(
@@ -908,61 +946,53 @@ st.write(
 )
 
 
-# ----------------------------------------------------------
-# FIND UNCLASSIFIED OUTSTANDING INVOICES
-# ----------------------------------------------------------
+# ==========================================================
+# FIND ANY UNCLASSIFIED OUTSTANDING INVOICES
+# ==========================================================
 
-unclassified = display_df[
-    (display_df["Calculated Outstanding"] > 0)
-    &
+unclassified_outstanding = display_df[
+    (display_df["Balance"] > 0) &
     (
-        ~(
-            display_df["Due Date"].notna()
-            &
-            (
-                display_df["Due Date"] <= today
-            )
-        )
-        &
-        ~(
-            display_df["Due Date"].notna()
-            &
-            (
-                display_df["Due Date"] > today
-            )
-        )
+        display_df["Due Date"].isna()
     )
 ].copy()
 
 
 st.write(
     f"Unclassified Outstanding Invoices: "
-    f"{len(unclassified):,}"
+    f"{len(unclassified_outstanding)}"
 )
 
 
-if not unclassified.empty:
+# ==========================================================
+# SHOW UNCLASSIFIED INVOICES IF ANY EXIST
+# ==========================================================
+
+if not unclassified_outstanding.empty:
+
+    st.write("### ⚠️ Unclassified Outstanding Invoices")
+
+    unclassified_columns = [
+        col for col in [
+            "Invoice Number",
+            "entity_id",
+            "Customer Name",
+            "Invoice Date",
+            "Due Date",
+            "Total",
+            "Paid",
+            "Balance"
+        ]
+        if col in unclassified_outstanding.columns
+    ]
 
     st.dataframe(
-        unclassified[
-            [
-                "Invoice Number",
-                "Customer Name",
-                "Invoice Date",
-                "Due Date",
-                "Total",
-                "Paid",
-                "Calculated Outstanding",
-                "Service Type"
-            ]
-        ].sort_values(
-            "Calculated Outstanding",
-            ascending=False
-        ),
+        unclassified_outstanding[
+            unclassified_columns
+        ],
         use_container_width=True,
         hide_index=True
     )
-
 # ==========================================================
 # TOTAL PENDING
 #
