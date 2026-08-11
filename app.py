@@ -1018,11 +1018,11 @@ today = pd.Timestamp.today().normalize()
 # ==========================================================
 
 overdue_df = display_df[
-    (display_df["Balance"] > 0) &
+    (display_df["Outstanding"] > 0) &
     (display_df["Due Date"] <= today)
 ].copy()
 
-overdue_due = overdue_df["Balance"].sum()
+overdue_due = overdue_df["Outstanding"].sum()
 
 
 # ==========================================================
@@ -1032,11 +1032,11 @@ overdue_due = overdue_df["Balance"].sum()
 # ==========================================================
 
 future_df = display_df[
-    (display_df["Balance"] > 0) &
+    (display_df["Outstanding"] > 0) &
     (display_df["Due Date"] > today)
 ].copy()
 
-future_due = future_df["Balance"].sum()
+future_due = future_df["Outstanding"].sum()
 
 
 # ==========================================================
