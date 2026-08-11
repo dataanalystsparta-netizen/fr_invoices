@@ -753,31 +753,27 @@ collection_rate = (
     else 0
 )
 # ----------------------------------------------------------
-# AR CALCULATIONS FOR CURRENT FILTERED VIEW
+# AR CALCULATIONS FROM INVOICE DATA
 # ----------------------------------------------------------
 
 today = pd.Timestamp.today().normalize()
 
 # ==========================================================
-# INVOICE ENTITY IDS FOR CURRENT FILTER
+# OVERDUE
+#
+# Anything due today or earlier and still unpaid.
 # ==========================================================
 
-if "entity_id" in display_df.columns:
-
-    filtered_entity_ids = set(
-        display_df["entity_id"]
-        .dropna()
-        .astype(str)
-        .str.strip()
-    )
-
-else:
-
-    filtered_entity_ids = set()
+overdue_due = display_df[
+    (display_df["Balance"] > 0) &
+    (display_df["Due Date"] <= today)
+]["Balance"].sum()
 
 
 # ==========================================================
 # FUTURE DUE
+#
+# Anything not yet due and still unpaid.
 # ==========================================================
 
 future_due = display_df[
@@ -787,117 +783,17 @@ future_due = display_df[
 
 
 # ==========================================================
-# CURRENT DUE
-# ==========================================================
-
-current_due = 0
-
-if (
-    "entity_id" in ar_current.columns
-    and filtered_entity_ids
-):
-
-    current_ar_filtered = ar_current[
-        ar_current["entity_id"]
-        .astype(str)
-        .str.strip()
-        .isin(filtered_entity_ids)
-    ].copy()
-
-    current_due = (
-        current_ar_filtered["balance"].sum()
-    )
-
-
-# ==========================================================
-# DUE TODAY
-#
-# Add today's invoices to Current Due only when they
-# are NOT already present in AR Current.
-# ==========================================================
-
-due_today_df = display_df[
-    (display_df["Balance"] > 0) &
-    (display_df["Due Date"] == today)
-].copy()
-
-if not due_today_df.empty:
-
-    if "entity_id" in due_today_df.columns:
-
-        due_today_df["entity_id_clean"] = (
-            due_today_df["entity_id"]
-            .astype(str)
-            .str.strip()
-        )
-
-        if "entity_id" in ar_current.columns:
-
-            current_entity_ids = set(
-                ar_current["entity_id"]
-                .dropna()
-                .astype(str)
-                .str.strip()
-            )
-
-        else:
-
-            current_entity_ids = set()
-
-        due_today_not_in_current = due_today_df[
-            ~due_today_df["entity_id_clean"].isin(
-                current_entity_ids
-            )
-        ]
-
-        current_due += (
-            due_today_not_in_current["Balance"].sum()
-        )
-
-    else:
-
-        current_due += (
-            due_today_df["Balance"].sum()
-        )
-
-
-# ==========================================================
-# OVERDUE
-# ==========================================================
-
-overdue_due = 0
-
-if (
-    "entity_id" in ar_overdue.columns
-    and filtered_entity_ids
-):
-
-    overdue_ar_filtered = ar_overdue[
-        ar_overdue["entity_id"]
-        .astype(str)
-        .str.strip()
-        .isin(filtered_entity_ids)
-    ].copy()
-
-    overdue_due = (
-        overdue_ar_filtered["balance"].sum()
-    )
-
-
-# ==========================================================
 # TOTAL PENDING
 #
-# CURRENT + FUTURE + OVERDUE
+# Pending = Overdue + Future Due
 # ==========================================================
 
 total_pending = (
-    current_due
+    overdue_due
     + future_due
-    + overdue_due
 )
 
-
-# Used by percentage view
+# Keep this variable for the percentage KPI
 overdue_total = overdue_due
 # ----------------------------------------------------------
 # SHOW UNCLASSIFIED SERVICES
@@ -924,7 +820,7 @@ if selected_service == "Unclassified":
 # KPI CARDS
 # ==========================================================
 
-c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns(9)
+c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
 
 if IS_FINANCIAL:
 
@@ -960,23 +856,17 @@ if IS_FINANCIAL:
 
     with c6:
         kpi_card(
-            "📋 Current Due",
-            f"£{current_due:,.2f}"
-        )
-
-    with c7:
-        kpi_card(
             "📅 Future Due",
             f"£{future_due:,.2f}"
         )
 
-    with c8:
+    with c7:
         kpi_card(
             "🔴 Overdue",
             f"£{overdue_due:,.2f}"
         )
 
-    with c9:
+    with c8:
         kpi_card(
             "📊 Collection",
             f"{collection_rate:.1f}%"
@@ -1006,15 +896,6 @@ else:
         if total_invoiced > 0 else 0
     )
     
-    
-    # ------------------------------------------------------
-    # CURRENT DUE %
-    # ------------------------------------------------------
-    
-    current_percentage = (
-        (current_due / total_invoiced) * 100
-        if total_invoiced > 0 else 0
-    )
     
     
     # ------------------------------------------------------
@@ -1067,8 +948,8 @@ else:
     
     with c5:
         kpi_card(
-            "📌 Current Due",
-            f"{current_percentage:.1f}%"
+            "⏳ Pending",
+            f"{outstanding_percentage:.1f}%"
         )
     
     with c6:
@@ -1082,7 +963,6 @@ else:
             "🔴 Overdue",
             f"{overdue_percentage:.1f}%"
         )
-
 
 # ----------------------------------------------------------
 # MONTHLY BREAKDOWN
