@@ -548,6 +548,62 @@ def load_data():
         .drop_duplicates(subset="Invoice Number", keep="first")
         .reset_index(drop=True)
     )
+
+
+
+
+
+
+    
+        # ------------------------------------------------------
+    # INVOICE DEDUPLICATION CHECK
+    # ------------------------------------------------------
+    
+    duplicate_invoice_count = (
+        invoices["Invoice Number"]
+        .duplicated()
+        .sum()
+    )
+    
+    print(
+        f"Duplicate Invoice Numbers after deduplication: "
+        f"{duplicate_invoice_count}"
+    )
+    
+    print(
+        f"Unique invoices after deduplication: "
+        f"{invoices['Invoice Number'].nunique():,}"
+    )
+        # ------------------------------------------------------
+    # ENTITY ID CHECK
+    # ------------------------------------------------------
+    
+    if "entity_id" in invoices.columns:
+    
+        print(
+            "entity_id found in Invoice file."
+        )
+    
+        print(
+            f"Unique entity_id values: "
+            f"{invoices['entity_id'].nunique():,}"
+        )
+    
+        print(
+            f"Duplicate entity_id values: "
+            f"{invoices['entity_id'].duplicated().sum():,}"
+        )
+    
+    else:
+    
+        print(
+            "entity_id NOT found in Invoice file."
+        )
+
+
+
+
+    
     # ------------------------------------------------------
     # PAYMENT SUMMARY
     # ------------------------------------------------------
@@ -566,10 +622,165 @@ def load_data():
     )
     
     invoices["Paid"] = invoices["Paid"].fillna(0)
+        # ------------------------------------------------------
+    # AUTHORITATIVE OUTSTANDING BALANCE
+    # ------------------------------------------------------
+    
+    # Outstanding based on payments
+    invoices["Calculated Outstanding"] = (
+        invoices["Total"] - invoices["Paid"]
+    ).clip(lower=0)
+    
+    # Difference between Zoho Balance and payment-derived balance
+    invoices["Balance Difference"] = (
+        invoices["Calculated Outstanding"] - invoices["Balance"]
+    )
+    
+    # Flag invoices that do not reconcile
+    invoices["Balance Reconciles"] = (
+        invoices["Balance Difference"].abs() <= 0.01
+    )
+    
+    # Use Zoho Balance where it reconciles.
+    # Otherwise use Total - Paid.
+    invoices["Outstanding"] = np.where(
+        invoices["Balance Reconciles"],
+        invoices["Balance"],
+        invoices["Calculated Outstanding"]
+    )
+
+    # ==========================================================
+    # RECONCILIATION:
+    # INVOICE TOTAL vs PAYMENTS vs ZOHO BALANCE
+    # ==========================================================
+    
+    invoices["Calculated Outstanding"] = (
+        invoices["Total"] - invoices["Paid"]
+    )
+    
+    invoices["Balance Difference"] = (
+        invoices["Calculated Outstanding"]
+        - invoices["Balance"]
+    )
+    
+    reconciliation_difference = (
+        invoices["Balance Difference"].sum()
+    )
+    
+    print("=" * 70)
+    print("INVOICE / PAYMENT / BALANCE RECONCILIATION")
+    print("=" * 70)
+    
+    print(
+        f"Invoice Total       : £{invoices['Total'].sum():,.2f}"
+    )
+    
+    print(
+        f"Payments Matched    : £{invoices['Paid'].sum():,.2f}"
+    )
+    
+    print(
+        f"Total - Paid        : "
+        f"£{invoices['Calculated Outstanding'].sum():,.2f}"
+    )
+    
+    print(
+        f"Invoice Balance     : "
+        f"£{invoices['Balance'].sum():,.2f}"
+    )
+    
+    print(
+        f"Difference          : "
+        f"£{reconciliation_difference:,.2f}"
+    )
+    
+    print("=" * 70)
+    
+    
+    # ==========================================================
+    # FIND INVOICES WHERE:
+    # TOTAL - PAID != ZOHO BALANCE
+    # ==========================================================
+    
+    reconciliation_issues = invoices[
+        invoices["Balance Difference"].abs() > 0.01
+    ].copy()
+    
+    print(
+        f"Invoices with reconciliation differences: "
+        f"{len(reconciliation_issues):,}"
+    )
+    
+    
+    if not reconciliation_issues.empty:
+    
+        print(
+            reconciliation_issues[
+                [
+                    "Invoice Number",
+                    "Customer Name",
+                    "Invoice Date",
+                    "Due Date",
+                    "Total",
+                    "Paid",
+                    "Calculated Outstanding",
+                    "Balance",
+                    "Balance Difference"
+                ]
+            ].to_string(index=False)
+        )
     
 
 
 
+    
+        # ------------------------------------------------------
+    # CALCULATED OUTSTANDING
+    # ------------------------------------------------------
+    
+    invoices["Calculated Outstanding"] = (
+        invoices["Total"]
+        - invoices["Paid"]
+    )
+    
+    # Prevent negative balances
+    invoices["Calculated Outstanding"] = (
+        invoices["Calculated Outstanding"]
+        .clip(lower=0)
+    )
+        # ------------------------------------------------------
+    # INVOICE RECONCILIATION
+    # ------------------------------------------------------
+    
+    invoice_total_check = invoices["Total"].sum()
+    invoice_paid_check = invoices["Paid"].sum()
+    invoice_outstanding_check = (
+        invoices["Calculated Outstanding"].sum()
+    )
+    
+    reconciliation_difference = (
+        invoice_total_check
+        - invoice_paid_check
+        - invoice_outstanding_check
+    )
+    
+    print(
+        f"Invoice Total       : £{invoice_total_check:,.2f}"
+    )
+    
+    print(
+        f"Payments Applied    : £{invoice_paid_check:,.2f}"
+    )
+    
+    print(
+        f"Calculated Pending  : £{invoice_outstanding_check:,.2f}"
+    )
+    
+    print(
+        f"Reconciliation Diff : £{reconciliation_difference:,.2f}"
+    )
+
+  
 
 
 
@@ -582,7 +793,7 @@ def load_data():
         invoices.groupby("Customer Name", as_index=False)
         .agg(
             Total_Invoiced=("Total", "sum"),
-            Outstanding=("Balance", "sum"),
+            Outstanding=("Calculated Outstanding", "sum"),
             Invoice_Count=("Invoice Number", "nunique")
         )
     )
@@ -597,7 +808,7 @@ def load_data():
             Customers=("Customer Name", "nunique"),
             Invoices=("Invoice Number", "nunique"),
             Total_Invoiced=("Total", "sum"),
-            Outstanding=("Balance", "sum")
+            Outstanding=("Calculated Outstanding", "sum")
         )
         .sort_values("Month")
     )
@@ -720,6 +931,38 @@ display_df = invoices[
     (invoices["Invoice Date"] >= pd.Timestamp(start_date)) &
     (invoices["Invoice Date"] <= pd.Timestamp(end_date))
 ].copy()
+  # ==========================================================
+# DUPLICATE CHECK
+# ==========================================================
+
+duplicate_invoice_count = (
+    display_df["Invoice Number"]
+    .duplicated()
+    .sum()
+)
+
+duplicate_entity_count = 0
+
+if "entity_id" in display_df.columns:
+
+    duplicate_entity_count = (
+        display_df["entity_id"]
+        .astype(str)
+        .str.strip()
+        .duplicated()
+        .sum()
+    )
+
+st.write(
+    f"Duplicate Invoice Numbers in current data: "
+    f"{duplicate_invoice_count}"
+)
+
+st.write(
+    f"Duplicate entity_id values in current data: "
+    f"{duplicate_entity_count}"
+)
+
 
 
 # ----------------------------------------------------------
@@ -743,28 +986,314 @@ total_invoiced = display_df["Total"].sum()
 
 total_paid = display_df["Paid"].sum()
 
-# Live AR Snapshot (do not date filter)
-
-current_total = ar_current["balance"].sum()
-overdue_total = ar_overdue["balance"].sum()
-
-total_pending = current_total + overdue_total
-
-# Future invoices (not yet due)
-
-today = pd.Timestamp.today().normalize()
-
-future_due = display_df[
-    (display_df["Balance"] > 0) &
-    (display_df["Due Date"] > today)
-]["Balance"].sum()
-
-# Collection Rate
+# ----------------------------------------------------------
+# COLLECTION RATE
+# ----------------------------------------------------------
 
 collection_rate = (
     (total_paid / total_invoiced) * 100
-    if total_invoiced > 0 else 0
+    if total_invoiced > 0
+    else 0
 )
+# ----------------------------------------------------------
+# AR CALCULATIONS FROM DEDUPLICATED INVOICE DATA
+# ----------------------------------------------------------
+
+today = pd.Timestamp.today().normalize()
+
+# ==========================================================
+# IMPORTANT:
+# display_df comes from "invoices", which has already had
+# duplicate Invoice Numbers removed in load_data().
+#
+# Therefore ALL AR calculations below are based on the
+# deduplicated invoice population.
+# ==========================================================
+
+
+# ==========================================================
+# OVERDUE
+#
+# Anything due today or earlier and still unpaid.
+# ==========================================================
+
+overdue_df = display_df[
+    (display_df["Outstanding"] > 0) &
+    (display_df["Due Date"] <= today)
+].copy()
+
+overdue_due = overdue_df["Outstanding"].sum()
+
+
+# ==========================================================
+# FUTURE DUE
+#
+# Anything not yet due and still unpaid.
+# ==========================================================
+
+future_df = display_df[
+    (display_df["Outstanding"] > 0) &
+    (display_df["Due Date"] > today)
+].copy()
+
+future_due = future_df["Outstanding"].sum()
+
+
+# ==========================================================
+# TOTAL PENDING
+#
+# Because every unpaid invoice is either:
+#
+#   1. Overdue
+#   2. Future Due
+#
+# Pending is simply the sum of the two.
+# ==========================================================
+
+total_pending = (
+    overdue_due
+    + future_due
+)
+
+
+# ==========================================================
+# PENDING RECONCILIATION
+#
+# Compare the actual Invoice Balance against the
+# Future + Overdue calculation.
+# ==========================================================
+
+invoice_balance = (
+    display_df["Balance"]
+    .clip(lower=0)
+    .sum()
+)
+
+calculated_pending = total_pending
+
+difference = (
+    invoice_balance
+    - calculated_pending
+)
+
+
+# ==========================================================
+# DIAGNOSTIC
+# ==========================================================
+
+st.write("### 🔎 Pending Reconciliation")
+
+st.write(
+    f"Invoice Balance: £{invoice_balance:,.2f}"
+)
+
+st.write(
+    f"Future + Overdue: £{calculated_pending:,.2f}"
+)
+
+st.write(
+    f"Difference: £{difference:,.2f}"
+)
+
+
+# ==========================================================
+# FIND ANY UNCLASSIFIED OUTSTANDING INVOICES
+# ==========================================================
+
+unclassified_outstanding = display_df[
+    (display_df["Balance"] > 0) &
+    (
+        display_df["Due Date"].isna()
+    )
+].copy()
+
+
+st.write(
+    f"Unclassified Outstanding Invoices: "
+    f"{len(unclassified_outstanding)}"
+)
+
+# ==========================================================
+# PENDING RECONCILIATION DIAGNOSTIC
+# ==========================================================
+
+display_df["Calculated Outstanding"] = (
+    display_df["Total"] - display_df["Paid"]
+).clip(lower=0)
+
+expected_pending = (
+    display_df["Calculated Outstanding"].sum()
+)
+
+calculated_pending = (
+    future_due + overdue_due
+)
+
+difference = (
+    expected_pending - calculated_pending
+)
+
+# ==========================================================
+# DISPLAY RECONCILIATION
+# ==========================================================
+
+st.subheader("🔎 Pending Reconciliation")
+
+r1, r2, r3 = st.columns(3)
+
+with r1:
+    st.metric(
+        "Invoiced - Paid",
+        f"£{expected_pending:,.2f}"
+    )
+
+with r2:
+    st.metric(
+        "Future + Overdue",
+        f"£{calculated_pending:,.2f}"
+    )
+
+with r3:
+    st.metric(
+        "Difference",
+        f"£{difference:,.2f}"
+    )
+
+# ==========================================================
+# SHOW INVOICES CAUSING THE DIFFERENCE
+# ==========================================================
+
+if abs(difference) > 0.01:
+
+    st.warning(
+        f"⚠️ There is a £{abs(difference):,.2f} reconciliation difference."
+    )
+
+    # Create diagnostic columns
+    reconciliation_df = display_df[
+        display_df["Calculated Outstanding"] > 0
+    ].copy()
+
+    reconciliation_df["AR Bucket"] = np.where(
+        reconciliation_df["Due Date"] <= today,
+        "Overdue",
+        "Future Due"
+    )
+
+    reconciliation_df["AR Amount"] = np.where(
+        reconciliation_df["Due Date"] <= today,
+        reconciliation_df["Balance"],
+        reconciliation_df["Balance"]
+    )
+
+    reconciliation_df["Difference"] = (
+        reconciliation_df["Calculated Outstanding"]
+        - reconciliation_df["AR Amount"]
+    )
+
+    # Only show invoices contributing to difference
+    reconciliation_issues = reconciliation_df[
+        reconciliation_df["Difference"].abs() > 0.01
+    ].copy()
+
+    st.write(
+        f"**Invoices causing difference: "
+        f"{len(reconciliation_issues):,}**"
+    )
+
+    # Dynamically select columns that actually exist
+    diagnostic_columns = [
+        "Invoice Number",
+        "entity_id",
+        "Customer Name",
+        "Invoice Date",
+        "Due Date",
+        "Total",
+        "Paid",
+        "Balance",
+        "Calculated Outstanding",
+        "AR Bucket",
+        "Difference"
+    ]
+
+    diagnostic_columns = [
+        col
+        for col in diagnostic_columns
+        if col in reconciliation_issues.columns
+    ]
+
+    if not reconciliation_issues.empty:
+
+        st.dataframe(
+            reconciliation_issues[
+                diagnostic_columns
+            ].sort_values(
+                "Difference",
+                key=lambda x: x.abs(),
+                ascending=False
+            ),
+            use_container_width=True,
+            hide_index=True
+        )
+
+    else:
+
+        st.info(
+            "No individual invoice was identified as "
+            "causing the difference."
+        )
+
+else:
+
+    st.success(
+        "✅ Pending reconciles exactly: "
+        f"£{expected_pending:,.2f}"
+    )
+
+
+
+# ==========================================================
+# SHOW UNCLASSIFIED INVOICES IF ANY EXIST
+# ==========================================================
+
+if not unclassified_outstanding.empty:
+
+    st.write("### ⚠️ Unclassified Outstanding Invoices")
+
+    unclassified_columns = [
+        col for col in [
+            "Invoice Number",
+            "entity_id",
+            "Customer Name",
+            "Invoice Date",
+            "Due Date",
+            "Total",
+            "Paid",
+            "Balance"
+        ]
+        if col in unclassified_outstanding.columns
+    ]
+
+    st.dataframe(
+        unclassified_outstanding[
+            unclassified_columns
+        ],
+        use_container_width=True,
+        hide_index=True
+    )
+# ==========================================================
+# TOTAL PENDING
+#
+# Pending = Overdue + Future Due
+# ==========================================================
+
+total_pending = (
+    overdue_due
+    + future_due
+)
+
+# Keep this variable for the percentage KPI
+overdue_total = overdue_due
 # ----------------------------------------------------------
 # SHOW UNCLASSIFIED SERVICES
 # ----------------------------------------------------------
@@ -833,7 +1362,7 @@ if IS_FINANCIAL:
     with c7:
         kpi_card(
             "🔴 Overdue",
-            f"£{overdue_total:,.2f}"
+            f"£{overdue_due:,.2f}"
         )
 
     with c8:
@@ -841,80 +1370,99 @@ if IS_FINANCIAL:
             "📊 Collection",
             f"{collection_rate:.1f}%"
         )
-
 else:
 
-    # ------------------------------------------------------
+    # ======================================================
     # PERCENTAGE VIEW
+    # ======================================================
+    
     # ------------------------------------------------------
-
+    # PAID %
+    # ------------------------------------------------------
+    
     paid_percentage = (
         (total_paid / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
-
+    
+    
+    # ------------------------------------------------------
+    # OUTSTANDING / PENDING %
+    # ------------------------------------------------------
+    
     outstanding_percentage = (
-        ((total_invoiced - total_paid) / total_invoiced) * 100
+        (total_pending / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
-
+    
+    
+    
+    # ------------------------------------------------------
+    # FUTURE DUE %
+    # ------------------------------------------------------
+    
     future_percentage = (
         (future_due / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
-
+    
+    
+    # ------------------------------------------------------
+    # OVERDUE %
+    # ------------------------------------------------------
+    
     overdue_percentage = (
         (overdue_total / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
-
+    
+    
+    # ======================================================
+    # KPI CARDS
+    # ======================================================
+    
     with c1:
         kpi_card(
             "👥 Customers",
             f"{total_customers:,}"
         )
-
+    
     with c2:
         kpi_card(
             "📄 Invoices",
             f"{total_invoices:,}"
         )
-
+    
     with c3:
         kpi_card(
             "✅ Paid",
             f"{paid_percentage:.1f}%"
         )
-
+    
     with c4:
         kpi_card(
             "⏳ Outstanding",
             f"{outstanding_percentage:.1f}%"
         )
-
+    
     with c5:
+        kpi_card(
+            "⏳ Pending",
+            f"{outstanding_percentage:.1f}%"
+        )
+    
+    with c6:
         kpi_card(
             "📅 Future Due",
             f"{future_percentage:.1f}%"
         )
-
-    with c6:
+    
+    with c7:
         kpi_card(
             "🔴 Overdue",
             f"{overdue_percentage:.1f}%"
         )
 
-    with c7:
-        kpi_card(
-            "📊 Collection",
-            f"{collection_rate:.1f}%"
-        )
-
-    with c8:
-        kpi_card(
-            "📈 Payment Coverage",
-            f"{paid_percentage:.1f}%"
-        )
 # ----------------------------------------------------------
 # MONTHLY BREAKDOWN
 # ----------------------------------------------------------
@@ -933,7 +1481,7 @@ monthly_display = (
         Invoices=("Invoice Number", "nunique"),
         Total_Invoiced=("Total", "sum"),
         Total_Paid=("Paid", "sum"),
-        Outstanding=("Balance", "sum")
+        Outstanding=("Calculated Outstanding", "sum")
     )
     .sort_values("Month")
     .reset_index(drop=True)
@@ -955,7 +1503,7 @@ if IS_FINANCIAL:
         "Invoices": display_df["Invoice Number"].nunique(),
         "Total_Invoiced": display_df["Total"].sum(),
         "Total_Paid": display_df["Paid"].sum(),
-        "Outstanding": display_df["Balance"].sum()
+        "Outstanding": display_df["Calculated Outstanding"].sum()
     }])
 
     monthly_display = pd.concat(
@@ -1660,7 +2208,7 @@ customer_payments = payments[
 # ==========================================================
 
 cust_total = customer_invoices["Total"].sum()
-cust_balance = customer_invoices["Balance"].sum()
+cust_balance = customer_invoices["Calculated Outstanding"].sum()
 cust_paid = customer_invoices["Paid"].sum()
 
 k1, k2, k3 = st.columns(3)
@@ -1756,7 +2304,9 @@ ledger["Payment_Date"] = (
 # OUTSTANDING
 # ----------------------------------------------------------
 
-ledger["Outstanding"] = ledger["Balance"]
+ledger["Outstanding"] = (
+    ledger["Calculated Outstanding"]
+)
 
 # Safety check
 
