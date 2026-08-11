@@ -744,6 +744,15 @@ total_invoiced = display_df["Total"].sum()
 total_paid = display_df["Paid"].sum()
 
 # ----------------------------------------------------------
+# COLLECTION RATE
+# ----------------------------------------------------------
+
+collection_rate = (
+    (total_paid / total_invoiced) * 100
+    if total_invoiced > 0
+    else 0
+)
+# ----------------------------------------------------------
 # AR CALCULATIONS FOR CURRENT FILTERED VIEW
 # ----------------------------------------------------------
 
