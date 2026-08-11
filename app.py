@@ -622,6 +622,32 @@ def load_data():
     )
     
     invoices["Paid"] = invoices["Paid"].fillna(0)
+        # ------------------------------------------------------
+    # AUTHORITATIVE OUTSTANDING BALANCE
+    # ------------------------------------------------------
+    
+    # Outstanding based on payments
+    invoices["Calculated Outstanding"] = (
+        invoices["Total"] - invoices["Paid"]
+    ).clip(lower=0)
+    
+    # Difference between Zoho Balance and payment-derived balance
+    invoices["Balance Difference"] = (
+        invoices["Calculated Outstanding"] - invoices["Balance"]
+    )
+    
+    # Flag invoices that do not reconcile
+    invoices["Balance Reconciles"] = (
+        invoices["Balance Difference"].abs() <= 0.01
+    )
+    
+    # Use Zoho Balance where it reconciles.
+    # Otherwise use Total - Paid.
+    invoices["Outstanding"] = np.where(
+        invoices["Balance Reconciles"],
+        invoices["Balance"],
+        invoices["Calculated Outstanding"]
+    )
 
     # ==========================================================
     # RECONCILIATION:
