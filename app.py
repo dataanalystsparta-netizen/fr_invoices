@@ -873,7 +873,95 @@ future_due = display_df[
     (display_df["Balance"] > 0) &
     (display_df["Due Date"] > today)
 ]["Balance"].sum()
+# ==========================================================
+# PENDING RECONCILIATION DIAGNOSTIC
+# ==========================================================
 
+display_df["Calculated Outstanding"] = (
+    display_df["Total"] - display_df["Paid"]
+).clip(lower=0)
+
+expected_pending = (
+    display_df["Calculated Outstanding"].sum()
+)
+
+calculated_pending = (
+    future_due + overdue_due
+)
+
+difference = (
+    expected_pending - calculated_pending
+)
+
+st.write("### 🔎 Pending Reconciliation")
+
+st.write(
+    f"Calculated Outstanding: £{expected_pending:,.2f}"
+)
+
+st.write(
+    f"Future + Overdue: £{calculated_pending:,.2f}"
+)
+
+st.write(
+    f"Difference: £{difference:,.2f}"
+)
+
+
+# ----------------------------------------------------------
+# FIND UNCLASSIFIED OUTSTANDING INVOICES
+# ----------------------------------------------------------
+
+unclassified = display_df[
+    (display_df["Calculated Outstanding"] > 0)
+    &
+    (
+        ~(
+            display_df["Due Date"].notna()
+            &
+            (
+                display_df["Due Date"] <= today
+            )
+        )
+        &
+        ~(
+            display_df["Due Date"].notna()
+            &
+            (
+                display_df["Due Date"] > today
+            )
+        )
+    )
+].copy()
+
+
+st.write(
+    f"Unclassified Outstanding Invoices: "
+    f"{len(unclassified):,}"
+)
+
+
+if not unclassified.empty:
+
+    st.dataframe(
+        unclassified[
+            [
+                "Invoice Number",
+                "Customer Name",
+                "Invoice Date",
+                "Due Date",
+                "Total",
+                "Paid",
+                "Calculated Outstanding",
+                "Service Type"
+            ]
+        ].sort_values(
+            "Calculated Outstanding",
+            ascending=False
+        ),
+        use_container_width=True,
+        hide_index=True
+    )
 
 # ==========================================================
 # TOTAL PENDING
