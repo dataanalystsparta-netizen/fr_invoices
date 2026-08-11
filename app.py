@@ -753,9 +753,6 @@ today = pd.Timestamp.today().normalize()
 # INVOICE ENTITY IDS FOR CURRENT FILTER
 # ==========================================================
 
-# The AR files use entity_id to identify the invoice.
-# We therefore use entity_id rather than Invoice Number.
-
 if "entity_id" in display_df.columns:
 
     filtered_entity_ids = set(
@@ -781,23 +778,10 @@ future_due = display_df[
 
 
 # ==========================================================
-# DUE TODAY
-# ==========================================================
-
-due_today = display_df[
-    (display_df["Balance"] > 0) &
-    (display_df["Due Date"] == today)
-]["Balance"].sum()
-
-
-# ==========================================================
 # CURRENT DUE
-#
-# Comes from AR Current.
-#
-# AR Current contains invoices which are due/current
-# according to Zoho but are not yet in the overdue file.
 # ==========================================================
+
+current_due = 0
 
 if (
     "entity_id" in ar_current.columns
@@ -811,32 +795,68 @@ if (
         .isin(filtered_entity_ids)
     ].copy()
 
-    current_due_from_ar = (
+    current_due = (
         current_ar_filtered["balance"].sum()
     )
 
-else:
 
-    current_due_from_ar = 0
-
-
-# ----------------------------------------------------------
-# Add invoices due TODAY to Current Due
+# ==========================================================
+# DUE TODAY
 #
-# These were previously falling between the buckets.
-# ----------------------------------------------------------
+# Add today's invoices to Current Due only when they
+# are NOT already present in AR Current.
+# ==========================================================
 
-current_due = (
-    current_due_from_ar
-    + due_today
-)
+due_today_df = display_df[
+    (display_df["Balance"] > 0) &
+    (display_df["Due Date"] == today)
+].copy()
+
+if not due_today_df.empty:
+
+    if "entity_id" in due_today_df.columns:
+
+        due_today_df["entity_id_clean"] = (
+            due_today_df["entity_id"]
+            .astype(str)
+            .str.strip()
+        )
+
+        if "entity_id" in ar_current.columns:
+
+            current_entity_ids = set(
+                ar_current["entity_id"]
+                .dropna()
+                .astype(str)
+                .str.strip()
+            )
+
+        else:
+
+            current_entity_ids = set()
+
+        due_today_not_in_current = due_today_df[
+            ~due_today_df["entity_id_clean"].isin(
+                current_entity_ids
+            )
+        ]
+
+        current_due += (
+            due_today_not_in_current["Balance"].sum()
+        )
+
+    else:
+
+        current_due += (
+            due_today_df["Balance"].sum()
+        )
 
 
 # ==========================================================
 # OVERDUE
-#
-# Comes from AR Overdue.
 # ==========================================================
+
+overdue_due = 0
 
 if (
     "entity_id" in ar_overdue.columns
@@ -854,15 +874,11 @@ if (
         overdue_ar_filtered["balance"].sum()
     )
 
-else:
-
-    overdue_due = 0
-
 
 # ==========================================================
 # TOTAL PENDING
 #
-# Pending must equal the three AR buckets.
+# CURRENT + FUTURE + OVERDUE
 # ==========================================================
 
 total_pending = (
@@ -872,7 +888,7 @@ total_pending = (
 )
 
 
-# Keep this variable for the financial KPI
+# Used by percentage view
 overdue_total = overdue_due
 # ----------------------------------------------------------
 # SHOW UNCLASSIFIED SERVICES
