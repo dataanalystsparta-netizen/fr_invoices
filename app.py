@@ -675,7 +675,7 @@ def load_data():
         invoices.groupby("Customer Name", as_index=False)
         .agg(
             Total_Invoiced=("Total", "sum"),
-            Outstanding=("Calculated Outstanding", "sum")
+            Outstanding=("Calculated Outstanding", "sum"),
             Invoice_Count=("Invoice Number", "nunique")
         )
     )
