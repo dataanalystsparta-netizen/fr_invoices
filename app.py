@@ -623,8 +623,9 @@ def load_data():
     
     invoices["Paid"] = invoices["Paid"].fillna(0)
 
-        # ==========================================================
-    # RECONCILIATION: INVOICE TOTAL vs PAYMENTS vs BALANCE
+    # ==========================================================
+    # RECONCILIATION:
+    # INVOICE TOTAL vs PAYMENTS vs ZOHO BALANCE
     # ==========================================================
     
     invoices["Calculated Outstanding"] = (
@@ -668,8 +669,11 @@ def load_data():
     )
     
     print("=" * 70)
-        # ==========================================================
-    # SHOW INVOICES WHERE TOTAL - PAID != BALANCE
+    
+    
+    # ==========================================================
+    # FIND INVOICES WHERE:
+    # TOTAL - PAID != ZOHO BALANCE
     # ==========================================================
     
     reconciliation_issues = invoices[
@@ -681,14 +685,16 @@ def load_data():
         f"{len(reconciliation_issues):,}"
     )
     
+    
     if not reconciliation_issues.empty:
     
         print(
             reconciliation_issues[
                 [
                     "Invoice Number",
-                    "entity_id",
                     "Customer Name",
+                    "Invoice Date",
+                    "Due Date",
                     "Total",
                     "Paid",
                     "Calculated Outstanding",
@@ -698,8 +704,6 @@ def load_data():
             ].to_string(index=False)
         )
     
-        
-
 
 
 
