@@ -548,6 +548,55 @@ def load_data():
         .drop_duplicates(subset="Invoice Number", keep="first")
         .reset_index(drop=True)
     )
+        # ------------------------------------------------------
+    # INVOICE DEDUPLICATION CHECK
+    # ------------------------------------------------------
+    
+    duplicate_invoice_count = (
+        invoices["Invoice Number"]
+        .duplicated()
+        .sum()
+    )
+    
+    print(
+        f"Duplicate Invoice Numbers after deduplication: "
+        f"{duplicate_invoice_count}"
+    )
+    
+    print(
+        f"Unique invoices after deduplication: "
+        f"{invoices['Invoice Number'].nunique():,}"
+    )
+        # ------------------------------------------------------
+    # ENTITY ID CHECK
+    # ------------------------------------------------------
+    
+    if "entity_id" in invoices.columns:
+    
+        print(
+            "entity_id found in Invoice file."
+        )
+    
+        print(
+            f"Unique entity_id values: "
+            f"{invoices['entity_id'].nunique():,}"
+        )
+    
+        print(
+            f"Duplicate entity_id values: "
+            f"{invoices['entity_id'].duplicated().sum():,}"
+        )
+    
+    else:
+    
+        print(
+            "entity_id NOT found in Invoice file."
+        )
+
+
+
+
+    
     # ------------------------------------------------------
     # PAYMENT SUMMARY
     # ------------------------------------------------------
@@ -566,7 +615,51 @@ def load_data():
     )
     
     invoices["Paid"] = invoices["Paid"].fillna(0)
+        # ------------------------------------------------------
+    # CALCULATED OUTSTANDING
+    # ------------------------------------------------------
     
+    invoices["Calculated Outstanding"] = (
+        invoices["Total"]
+        - invoices["Paid"]
+    )
+    
+    # Prevent negative balances
+    invoices["Calculated Outstanding"] = (
+        invoices["Calculated Outstanding"]
+        .clip(lower=0)
+    )
+        # ------------------------------------------------------
+    # INVOICE RECONCILIATION
+    # ------------------------------------------------------
+    
+    invoice_total_check = invoices["Total"].sum()
+    invoice_paid_check = invoices["Paid"].sum()
+    invoice_outstanding_check = (
+        invoices["Calculated Outstanding"].sum()
+    )
+    
+    reconciliation_difference = (
+        invoice_total_check
+        - invoice_paid_check
+        - invoice_outstanding_check
+    )
+    
+    print(
+        f"Invoice Total       : £{invoice_total_check:,.2f}"
+    )
+    
+    print(
+        f"Payments Applied    : £{invoice_paid_check:,.2f}"
+    )
+    
+    print(
+        f"Calculated Pending  : £{invoice_outstanding_check:,.2f}"
+    )
+    
+    print(
+        f"Reconciliation Diff : £{reconciliation_difference:,.2f}"
+    )
 
 
 
@@ -582,7 +675,7 @@ def load_data():
         invoices.groupby("Customer Name", as_index=False)
         .agg(
             Total_Invoiced=("Total", "sum"),
-            Outstanding=("Balance", "sum"),
+            Outstanding=("Calculated Outstanding", "sum")
             Invoice_Count=("Invoice Number", "nunique")
         )
     )
@@ -597,7 +690,7 @@ def load_data():
             Customers=("Customer Name", "nunique"),
             Invoices=("Invoice Number", "nunique"),
             Total_Invoiced=("Total", "sum"),
-            Outstanding=("Balance", "sum")
+            Outstanding=("Calculated Outstanding", "sum")
         )
         .sort_values("Month")
     )
@@ -982,7 +1075,7 @@ monthly_display = (
         Invoices=("Invoice Number", "nunique"),
         Total_Invoiced=("Total", "sum"),
         Total_Paid=("Paid", "sum"),
-        Outstanding=("Balance", "sum")
+        Outstanding=("Calculated Outstanding", "sum")
     )
     .sort_values("Month")
     .reset_index(drop=True)
@@ -1004,7 +1097,7 @@ if IS_FINANCIAL:
         "Invoices": display_df["Invoice Number"].nunique(),
         "Total_Invoiced": display_df["Total"].sum(),
         "Total_Paid": display_df["Paid"].sum(),
-        "Outstanding": display_df["Balance"].sum()
+        "Outstanding": display_df["Calculated Outstanding"].sum()
     }])
 
     monthly_display = pd.concat(
@@ -1709,7 +1802,7 @@ customer_payments = payments[
 # ==========================================================
 
 cust_total = customer_invoices["Total"].sum()
-cust_balance = customer_invoices["Balance"].sum()
+cust_balance = customer_invoices["Calculated Outstanding"].sum()
 cust_paid = customer_invoices["Paid"].sum()
 
 k1, k2, k3 = st.columns(3)
@@ -1805,7 +1898,9 @@ ledger["Payment_Date"] = (
 # OUTSTANDING
 # ----------------------------------------------------------
 
-ledger["Outstanding"] = ledger["Balance"]
+ledger["Outstanding"] = (
+    ledger["Calculated Outstanding"]
+)
 
 # Safety check
 
