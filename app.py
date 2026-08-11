@@ -548,6 +548,21 @@ def load_data():
         .drop_duplicates(subset="Invoice Number", keep="first")
         .reset_index(drop=True)
     )
+    # ------------------------------------------------------
+    # CLEAN ENTITy ID
+    # ------------------------------------------------------
+    
+    if "entity_id" in invoices.columns:
+    
+        invoices["entity_id"] = (
+            invoices["entity_id"]
+            .astype(str)
+            .str.strip()
+            .replace("nan", "")
+        )
+    else:
+    
+        invoices["entity_id"] = ""
 
 
 
