@@ -1086,6 +1086,144 @@ st.write(
     f"Unclassified Outstanding Invoices: "
     f"{len(unclassified_outstanding)}"
 )
+```python
+# ==========================================================
+# PENDING RECONCILIATION DIAGNOSTIC
+# ==========================================================
+
+display_df["Calculated Outstanding"] = (
+    display_df["Total"] - display_df["Paid"]
+).clip(lower=0)
+
+expected_pending = (
+    display_df["Calculated Outstanding"].sum()
+)
+
+calculated_pending = (
+    future_due + overdue_due
+)
+
+difference = (
+    expected_pending - calculated_pending
+)
+
+# ==========================================================
+# DISPLAY RECONCILIATION
+# ==========================================================
+
+st.subheader("🔎 Pending Reconciliation")
+
+r1, r2, r3 = st.columns(3)
+
+with r1:
+    st.metric(
+        "Invoiced - Paid",
+        f"£{expected_pending:,.2f}"
+    )
+
+with r2:
+    st.metric(
+        "Future + Overdue",
+        f"£{calculated_pending:,.2f}"
+    )
+
+with r3:
+    st.metric(
+        "Difference",
+        f"£{difference:,.2f}"
+    )
+
+# ==========================================================
+# SHOW INVOICES CAUSING THE DIFFERENCE
+# ==========================================================
+
+if abs(difference) > 0.01:
+
+    st.warning(
+        f"⚠️ There is a £{abs(difference):,.2f} reconciliation difference."
+    )
+
+    # Create diagnostic columns
+    reconciliation_df = display_df[
+        display_df["Calculated Outstanding"] > 0
+    ].copy()
+
+    reconciliation_df["AR Bucket"] = np.where(
+        reconciliation_df["Due Date"] <= today,
+        "Overdue",
+        "Future Due"
+    )
+
+    reconciliation_df["AR Amount"] = np.where(
+        reconciliation_df["Due Date"] <= today,
+        reconciliation_df["Balance"],
+        reconciliation_df["Balance"]
+    )
+
+    reconciliation_df["Difference"] = (
+        reconciliation_df["Calculated Outstanding"]
+        - reconciliation_df["AR Amount"]
+    )
+
+    # Only show invoices contributing to difference
+    reconciliation_issues = reconciliation_df[
+        reconciliation_df["Difference"].abs() > 0.01
+    ].copy()
+
+    st.write(
+        f"**Invoices causing difference: "
+        f"{len(reconciliation_issues):,}**"
+    )
+
+    # Dynamically select columns that actually exist
+    diagnostic_columns = [
+        "Invoice Number",
+        "entity_id",
+        "Customer Name",
+        "Invoice Date",
+        "Due Date",
+        "Total",
+        "Paid",
+        "Balance",
+        "Calculated Outstanding",
+        "AR Bucket",
+        "Difference"
+    ]
+
+    diagnostic_columns = [
+        col
+        for col in diagnostic_columns
+        if col in reconciliation_issues.columns
+    ]
+
+    if not reconciliation_issues.empty:
+
+        st.dataframe(
+            reconciliation_issues[
+                diagnostic_columns
+            ].sort_values(
+                "Difference",
+                key=lambda x: x.abs(),
+                ascending=False
+            ),
+            use_container_width=True,
+            hide_index=True
+        )
+
+    else:
+
+        st.info(
+            "No individual invoice was identified as "
+            "causing the difference."
+        )
+
+else:
+
+    st.success(
+        "✅ Pending reconciles exactly: "
+        f"£{expected_pending:,.2f}"
+    )
+```
 
 
 # ==========================================================
