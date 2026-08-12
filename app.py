@@ -1142,35 +1142,6 @@ difference = (
 
 
 # ==========================================================
-# SHOW UNCLASSIFIED INVOICES IF ANY EXIST
-# ==========================================================
-
-if not unclassified_outstanding.empty:
-
-    st.write("### ⚠️ Unclassified Outstanding Invoices")
-
-    unclassified_columns = [
-        col for col in [
-            "Invoice Number",
-            "entity_id",
-            "Customer Name",
-            "Invoice Date",
-            "Due Date",
-            "Total",
-            "Paid",
-            "Balance"
-        ]
-        if col in unclassified_outstanding.columns
-    ]
-
-    st.dataframe(
-        unclassified_outstanding[
-            unclassified_columns
-        ],
-        use_container_width=True,
-        hide_index=True
-    )
-# ==========================================================
 # TOTAL PENDING
 #
 # Pending = Overdue + Future Due
