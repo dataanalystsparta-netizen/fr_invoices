@@ -554,26 +554,6 @@ def load_data():
 
 
 
-    
-        # ------------------------------------------------------
-    # INVOICE DEDUPLICATION CHECK
-    # ------------------------------------------------------
-    
-    duplicate_invoice_count = (
-        invoices["Invoice Number"]
-        .duplicated()
-        .sum()
-    )
-    
-    print(
-        f"Duplicate Invoice Numbers after deduplication: "
-        f"{duplicate_invoice_count}"
-    )
-    
-    print(
-        f"Unique invoices after deduplication: "
-        f"{invoices['Invoice Number'].nunique():,}"
-    )
         # ------------------------------------------------------
     # ENTITY ID CHECK
     # ------------------------------------------------------
