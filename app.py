@@ -625,116 +625,38 @@ def load_data():
         # ------------------------------------------------------
     # AUTHORITATIVE OUTSTANDING BALANCE
     # ------------------------------------------------------
+    #
+    # The Invoice + Payment data is the dashboard source
+    # of truth.
+    #
+    # Outstanding = Invoice Total - Payments Applied
+    #
+    # This is calculated AFTER invoice deduplication.
+    # ------------------------------------------------------
     
-    # Outstanding based on payments
     invoices["Calculated Outstanding"] = (
-        invoices["Total"] - invoices["Paid"]
+        invoices["Total"]
+        - invoices["Paid"]
     ).clip(lower=0)
     
-    # Difference between Zoho Balance and payment-derived balance
-    invoices["Balance Difference"] = (
-        invoices["Calculated Outstanding"] - invoices["Balance"]
-    )
-    
-    # Flag invoices that do not reconcile
-    invoices["Balance Reconciles"] = (
-        invoices["Balance Difference"].abs() <= 0.01
-    )
-    
-    # Use Zoho Balance where it reconciles.
-    # Otherwise use Total - Paid.
-    invoices["Outstanding"] = np.where(
-        invoices["Balance Reconciles"],
-        invoices["Balance"],
+    # Dashboard outstanding is ALWAYS payment-derived
+    invoices["Outstanding"] = (
         invoices["Calculated Outstanding"]
     )
-
-    # ==========================================================
-    # RECONCILIATION:
-    # INVOICE TOTAL vs PAYMENTS vs ZOHO BALANCE
-    # ==========================================================
-    
-    invoices["Calculated Outstanding"] = (
-        invoices["Total"] - invoices["Paid"]
-    )
+    # ------------------------------------------------------
+    # ZOHO BALANCE RECONCILIATION
+    # ------------------------------------------------------
     
     invoices["Balance Difference"] = (
         invoices["Calculated Outstanding"]
         - invoices["Balance"]
     )
     
-    reconciliation_difference = (
-        invoices["Balance Difference"].sum()
+    invoices["Balance Reconciles"] = (
+        invoices["Balance Difference"].abs() <= 0.01
     )
-    
-    print("=" * 70)
-    print("INVOICE / PAYMENT / BALANCE RECONCILIATION")
-    print("=" * 70)
-    
-    print(
-        f"Invoice Total       : £{invoices['Total'].sum():,.2f}"
-    )
-    
-    print(
-        f"Payments Matched    : £{invoices['Paid'].sum():,.2f}"
-    )
-    
-    print(
-        f"Total - Paid        : "
-        f"£{invoices['Calculated Outstanding'].sum():,.2f}"
-    )
-    
-    print(
-        f"Invoice Balance     : "
-        f"£{invoices['Balance'].sum():,.2f}"
-    )
-    
-    print(
-        f"Difference          : "
-        f"£{reconciliation_difference:,.2f}"
-    )
-    
-    print("=" * 70)
-    
-    
-    # ==========================================================
-    # FIND INVOICES WHERE:
-    # TOTAL - PAID != ZOHO BALANCE
-    # ==========================================================
-    
-    reconciliation_issues = invoices[
-        invoices["Balance Difference"].abs() > 0.01
-    ].copy()
-    
-    print(
-        f"Invoices with reconciliation differences: "
-        f"{len(reconciliation_issues):,}"
-    )
-    
-    
-    if not reconciliation_issues.empty:
-    
-        print(
-            reconciliation_issues[
-                [
-                    "Invoice Number",
-                    "Customer Name",
-                    "Invoice Date",
-                    "Due Date",
-                    "Total",
-                    "Paid",
-                    "Calculated Outstanding",
-                    "Balance",
-                    "Balance Difference"
-                ]
-            ].to_string(index=False)
-        )
-    
-
-
-
-    
-        # ------------------------------------------------------
+      
+    # ------------------------------------------------------
     # CALCULATED OUTSTANDING
     # ------------------------------------------------------
     
@@ -780,7 +702,192 @@ def load_data():
         f"Reconciliation Diff : £{reconciliation_difference:,.2f}"
     )
 
-  
+  # ==========================================================
+    # INVOICE / PAYMENT / ZOHO BALANCE RECONCILIATION
+    # ==========================================================
+    
+    reconciliation_issues = invoices[
+        invoices["Balance Difference"].abs() > 0.01
+    ].copy()
+    
+    print("=" * 70)
+    print("INVOICE / PAYMENT / BALANCE RECONCILIATION")
+    print("=" * 70)
+    
+    print(
+        f"Unique invoices     : {invoices['Invoice Number'].nunique():,}"
+    )
+    
+    print(
+        f"Invoice Total       : £{invoices['Total'].sum():,.2f}"
+    )
+    
+    print(
+        f"Payments Matched    : £{invoices['Paid'].sum():,.2f}"
+    )
+    
+    print(
+        f"Calculated Pending  : £{invoices['Calculated Outstanding'].sum():,.2f}"
+    )
+    
+    print(
+        f"Zoho Invoice Balance: £{invoices['Balance'].sum():,.2f}"
+    )
+    
+    print(
+        f"Balance Difference  : "
+        f"£{invoices['Balance Difference'].sum():,.2f}"
+    )
+    
+    print(
+        f"Mismatch invoices   : "
+        f"{len(reconciliation_issues):,}"
+    )
+    
+    print("=" * 70)
+    # ==========================================================
+    # AR FILE RECONCILIATION
+    #
+    # AR files are reference data only.
+    # They DO NOT determine dashboard KPIs.
+    # ==========================================================
+    
+    ar_current["AR Source"] = "Future Due"
+    ar_overdue["AR Source"] = "Overdue"
+    
+    ar_reference = pd.concat(
+        [
+            ar_current,
+            ar_overdue
+        ],
+        ignore_index=True
+    )
+    
+    # Clean invoice numbers
+    if "invoice_number" in ar_reference.columns:
+    
+        ar_reference["Invoice Number"] = (
+            ar_reference["invoice_number"]
+            .astype(str)
+            .str.strip()
+        )
+    
+    elif "Invoice Number" not in ar_reference.columns:
+    
+        ar_reference["Invoice Number"] = ""
+    
+    
+    # ----------------------------------------------------------
+    # AR BALANCE
+    # ----------------------------------------------------------
+    
+    if "balance" in ar_reference.columns:
+    
+        ar_reference["AR Balance"] = (
+            pd.to_numeric(
+                ar_reference["balance"],
+                errors="coerce"
+            )
+            .fillna(0)
+        )
+    
+    else:
+    
+        ar_reference["AR Balance"] = 0
+    
+    
+    # ----------------------------------------------------------
+    # REMOVE DUPLICATE AR INVOICE NUMBERS
+    # ----------------------------------------------------------
+    
+    ar_reference = (
+        ar_reference
+        .drop_duplicates(
+            subset="Invoice Number",
+            keep="first"
+        )
+        .reset_index(drop=True)
+    )
+    # ==========================================================
+    # MATCH AR FILES AGAINST DEDUPLICATED INVOICE DATA
+    # ==========================================================
+    
+    invoice_reference = invoices[
+        [
+            "Invoice Number",
+            "Outstanding",
+            "Due Date"
+        ]
+    ].copy()
+    
+    invoice_reference["Invoice Number"] = (
+        invoice_reference["Invoice Number"]
+        .astype(str)
+        .str.strip()
+    )
+    
+    invoice_reference = invoice_reference.rename(
+        columns={
+            "Outstanding": "Invoice Outstanding"
+        }
+    )
+    
+    ar_reconciliation = ar_reference.merge(
+        invoice_reference,
+        on="Invoice Number",
+        how="outer",
+        indicator=True
+    )
+    
+    ar_reconciliation["Invoice Outstanding"] = (
+        ar_reconciliation["Invoice Outstanding"]
+        .fillna(0)
+    )
+    
+    ar_reconciliation["AR Balance"] = (
+        ar_reconciliation["AR Balance"]
+        .fillna(0)
+    )
+    
+    ar_reconciliation["Difference"] = (
+        ar_reconciliation["Invoice Outstanding"]
+        - ar_reconciliation["AR Balance"]
+    )
+
+
+    # ==========================================================
+    # AR MISMATCHES
+    # ==========================================================
+    
+    ar_mismatches = ar_reconciliation[
+        (
+            ar_reconciliation["Difference"].abs() > 0.01
+        )
+        |
+        (
+            ar_reconciliation["_merge"] != "both"
+        )
+    ].copy()
+    
+    print(
+        f"AR reconciliation mismatches: "
+        f"{len(ar_mismatches):,}"
+    )
+    
+    if not ar_mismatches.empty:
+    
+        print(
+            ar_mismatches[
+                [
+                    "Invoice Number",
+                    "Invoice Outstanding",
+                    "AR Balance",
+                    "Difference",
+                    "_merge"
+                ]
+            ].to_string(index=False)
+        )
+
 
 
 
@@ -820,11 +927,11 @@ def load_data():
     total_customers = invoices["Customer Name"].nunique()
 
     total_invoiced = invoices["Total"].sum()
-
     total_pending = (
-        ar_current["balance"].sum()
-        + ar_overdue["balance"].sum()
+        invoices["Outstanding"].sum()
     )
+
+
 
     contacts = pd.read_excel(CONTACTS_FILE)
     contacts.columns = contacts.columns.str.strip()
@@ -837,6 +944,8 @@ def load_data():
         payments,
         ar_current,
         ar_overdue,
+        ar_reconciliation,
+        ar_mismatches,
         customer_summary,
         monthly_summary,
         total_customers,
@@ -851,6 +960,8 @@ def load_data():
     payments,
     ar_current,
     ar_overdue,
+    ar_reconciliation,
+    ar_mismatches,
     customer_summary,
     monthly_summary,
     TOTAL_CUSTOMERS,
@@ -858,7 +969,6 @@ def load_data():
     TOTAL_PENDING,
     contacts
 ) = load_data()
-
 
 
 # ==========================================================
@@ -1054,27 +1164,33 @@ total_pending = (
     overdue_due
     + future_due
 )
-
-
 # ==========================================================
 # PENDING RECONCILIATION
+# ==========================================================
 #
-# Compare the actual Invoice Balance against the
-# Future + Overdue calculation.
+# Pending is entirely invoice/payment based.
+#
+# Invoice Balance = Total - Paid
+#
+# AR files are NOT used to calculate Pending.
+# They are only used for reconciliation.
 # ==========================================================
 
 invoice_balance = (
-    display_df["Balance"]
-    .clip(lower=0)
+    display_df["Outstanding"]
     .sum()
 )
 
-calculated_pending = total_pending
+calculated_pending = (
+    overdue_due
+    + future_due
+)
 
 difference = (
     invoice_balance
     - calculated_pending
 )
+
 
 
 # ==========================================================
@@ -1117,12 +1233,9 @@ st.write(
 # PENDING RECONCILIATION DIAGNOSTIC
 # ==========================================================
 
-display_df["Calculated Outstanding"] = (
-    display_df["Total"] - display_df["Paid"]
-).clip(lower=0)
 
 expected_pending = (
-    display_df["Calculated Outstanding"].sum()
+    display_df["Outstanding"].sum()
 )
 
 calculated_pending = (
@@ -1168,33 +1281,57 @@ if abs(difference) > 0.01:
     st.warning(
         f"⚠️ There is a £{abs(difference):,.2f} reconciliation difference."
     )
-
-    # Create diagnostic columns
-    reconciliation_df = display_df[
-        display_df["Calculated Outstanding"] > 0
+    # ==========================================================
+    # AR FILE MISMATCHES FOR CURRENT FILTER
+    # ==========================================================
+    
+    filtered_invoice_numbers = set(
+        display_df["Invoice Number"]
+        .astype(str)
+        .str.strip()
+    )
+    
+    filtered_ar_mismatches = ar_mismatches[
+        ar_mismatches["Invoice Number"]
+        .astype(str)
+        .str.strip()
+        .isin(filtered_invoice_numbers)
     ].copy()
-
-    reconciliation_df["AR Bucket"] = np.where(
-        reconciliation_df["Due Date"] <= today,
-        "Overdue",
-        "Future Due"
+    
+    if not filtered_ar_mismatches.empty:
+    
+        st.warning(
+            f"⚠️ {len(filtered_ar_mismatches):,} "
+            f"invoice(s) differ between Invoice/Payment data "
+            f"and the AR files."
+        )
+    
+        diagnostic_columns = [
+            "Invoice Number",
+            "Invoice Outstanding",
+            "AR Balance",
+            "Difference",
+            "_merge"
+        ]
+    
+        diagnostic_columns = [
+            col
+            for col in diagnostic_columns
+            if col in filtered_ar_mismatches.columns
+        ]
+    
+        st.dataframe(
+            filtered_ar_mismatches[
+                diagnostic_columns
+            ].sort_values(
+                "Difference",
+                key=lambda x: x.abs(),
+                ascending=False
+            ),
+            use_container_width=True,
+            hide_index=True
     )
 
-    reconciliation_df["AR Amount"] = np.where(
-        reconciliation_df["Due Date"] <= today,
-        reconciliation_df["Balance"],
-        reconciliation_df["Balance"]
-    )
-
-    reconciliation_df["Difference"] = (
-        reconciliation_df["Calculated Outstanding"]
-        - reconciliation_df["AR Amount"]
-    )
-
-    # Only show invoices contributing to difference
-    reconciliation_issues = reconciliation_df[
-        reconciliation_df["Difference"].abs() > 0.01
-    ].copy()
 
     st.write(
         f"**Invoices causing difference: "
@@ -1462,7 +1599,33 @@ else:
             "🔴 Overdue",
             f"{overdue_percentage:.1f}%"
         )
+with st.expander("🔧 Reconciliation", expanded=False):
 
+    st.write(
+        f"AR mismatches: {len(ar_mismatches):,}"
+    )
+
+    if not filtered_ar_mismatches.empty:
+
+        st.dataframe(
+            filtered_ar_mismatches[
+                [
+                    "Invoice Number",
+                    "Invoice Outstanding",
+                    "AR Balance",
+                    "Difference",
+                    "_merge"
+                ]
+            ],
+            use_container_width=True,
+            hide_index=True
+        )
+
+    else:
+
+        st.success(
+            "✅ Invoice/Payment data reconciles with AR files."
+        )
 # ----------------------------------------------------------
 # MONTHLY BREAKDOWN
 # ----------------------------------------------------------
