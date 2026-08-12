@@ -1021,39 +1021,6 @@ display_df = invoices[
     (invoices["Invoice Date"] >= pd.Timestamp(start_date)) &
     (invoices["Invoice Date"] <= pd.Timestamp(end_date))
 ].copy()
-  # ==========================================================
-# DUPLICATE CHECK
-# ==========================================================
-
-duplicate_invoice_count = (
-    display_df["Invoice Number"]
-    .duplicated()
-    .sum()
-)
-
-duplicate_entity_count = 0
-
-if "entity_id" in display_df.columns:
-
-    duplicate_entity_count = (
-        display_df["entity_id"]
-        .astype(str)
-        .str.strip()
-        .duplicated()
-        .sum()
-    )
-
-st.write(
-    f"Duplicate Invoice Numbers in current data: "
-    f"{duplicate_invoice_count}"
-)
-
-st.write(
-    f"Duplicate entity_id values in current data: "
-    f"{duplicate_entity_count}"
-)
-
-
 
 # ----------------------------------------------------------
 # SERVICE FILTER
