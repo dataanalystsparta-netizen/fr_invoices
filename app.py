@@ -1281,56 +1281,6 @@ if abs(difference) > 0.01:
     st.warning(
         f"⚠️ There is a £{abs(difference):,.2f} reconciliation difference."
     )
-    # ==========================================================
-    # AR FILE MISMATCHES FOR CURRENT FILTER
-    # ==========================================================
-    
-    filtered_invoice_numbers = set(
-        display_df["Invoice Number"]
-        .astype(str)
-        .str.strip()
-    )
-    
-    filtered_ar_mismatches = ar_mismatches[
-        ar_mismatches["Invoice Number"]
-        .astype(str)
-        .str.strip()
-        .isin(filtered_invoice_numbers)
-    ].copy()
-    
-    if not filtered_ar_mismatches.empty:
-    
-        st.warning(
-            f"⚠️ {len(filtered_ar_mismatches):,} "
-            f"invoice(s) differ between Invoice/Payment data "
-            f"and the AR files."
-        )
-    
-        diagnostic_columns = [
-            "Invoice Number",
-            "Invoice Outstanding",
-            "AR Balance",
-            "Difference",
-            "_merge"
-        ]
-    
-        diagnostic_columns = [
-            col
-            for col in diagnostic_columns
-            if col in filtered_ar_mismatches.columns
-        ]
-    
-        st.dataframe(
-            filtered_ar_mismatches[
-                diagnostic_columns
-            ].sort_values(
-                "Difference",
-                key=lambda x: x.abs(),
-                ascending=False
-            ),
-            use_container_width=True,
-            hide_index=True
-    )
 
 
     st.write(
@@ -1599,24 +1549,69 @@ else:
             "🔴 Overdue",
             f"{overdue_percentage:.1f}%"
         )
-with st.expander("🔧 Reconciliation", expanded=False):
+# ==========================================================
+# HIDDEN AR RECONCILIATION
+#
+# Filter the global AR mismatch list against the
+# currently selected invoice population.
+#
+# This is deliberately independent of the normal
+# Pending reconciliation calculation.
+# ==========================================================
+
+filtered_invoice_numbers = set(
+    display_df["Invoice Number"]
+    .astype(str)
+    .str.strip()
+)
+
+filtered_ar_mismatches = ar_mismatches[
+    ar_mismatches["Invoice Number"]
+    .astype(str)
+    .str.strip()
+    .isin(filtered_invoice_numbers)
+].copy()
+
+
+
+# ==========================================================
+# HIDDEN AR RECONCILIATION
+# ==========================================================
+
+with st.expander(
+    "🔧 Reconciliation",
+    expanded=False
+):
 
     st.write(
-        f"AR mismatches: {len(ar_mismatches):,}"
+        f"AR mismatches in current filtered data: "
+        f"{len(filtered_ar_mismatches):,}"
     )
 
     if not filtered_ar_mismatches.empty:
 
+        diagnostic_columns = [
+            "Invoice Number",
+            "Invoice Outstanding",
+            "AR Balance",
+            "Difference",
+            "_merge"
+        ]
+
+        diagnostic_columns = [
+            col
+            for col in diagnostic_columns
+            if col in filtered_ar_mismatches.columns
+        ]
+
         st.dataframe(
             filtered_ar_mismatches[
-                [
-                    "Invoice Number",
-                    "Invoice Outstanding",
-                    "AR Balance",
-                    "Difference",
-                    "_merge"
-                ]
-            ],
+                diagnostic_columns
+            ].sort_values(
+                "Difference",
+                key=lambda x: x.abs(),
+                ascending=False
+            ),
             use_container_width=True,
             hide_index=True
         )
@@ -1626,6 +1621,8 @@ with st.expander("🔧 Reconciliation", expanded=False):
         st.success(
             "✅ Invoice/Payment data reconciles with AR files."
         )
+
+
 # ----------------------------------------------------------
 # MONTHLY BREAKDOWN
 # ----------------------------------------------------------
