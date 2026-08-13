@@ -214,23 +214,23 @@ st.markdown("""
 
 def kpi_card(title, value, percentage=None):
 
-    percentage_html = ""
-
     if percentage is not None:
+        percentage_text = f"{percentage:.1f}%"
+    else:
+        percentage_text = ""
 
-        percentage_html = f"""
-        <div class="kpi-percentage">
-            {percentage:.1f}%
+    st.markdown(
+        f"""
+        <div class="kpi-card">
+            <div class="kpi-title">{title}</div>
+            <div class="kpi-value">{value}</div>
+            <div class="kpi-percentage">
+                {percentage_text}
+            </div>
         </div>
-        """
-
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">{title}</div>
-        <div class="kpi-value">{value}</div>
-        {percentage_html}
-    </div>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
     st.markdown("""
     <style>
     
@@ -242,26 +242,35 @@ def kpi_card(title, value, percentage=None):
         text-align:center;
         box-shadow:0 1px 6px rgba(0,0,0,0.08);
         margin-bottom:10px;
+        min-height:118px;
+        display:flex;
+        flex-direction:column;
+        justify-content:center;
+        box-sizing:border-box;
     }
     
     .kpi-title{
         font-size:15px;
         color:#666666;
-        margin-bottom:8px;
+        margin-bottom:6px;
         font-weight:600;
+        line-height:1.2;
     }
     
     .kpi-value{
         font-size:28px;
         font-weight:700;
         color:#111111;
+        line-height:1.1;
     }
     
     .kpi-percentage{
         font-size:12px;
         color:#888888;
-        margin-top:3px;
         font-weight:500;
+        height:16px;
+        line-height:16px;
+        margin-top:4px;
     }
     
     </style>
