@@ -212,14 +212,60 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-def kpi_card(title, value):
+def kpi_card(title, value, percentage=None):
+
+    percentage_html = ""
+
+    if percentage is not None:
+
+        percentage_html = f"""
+        <div class="kpi-percentage">
+            {percentage:.1f}%
+        </div>
+        """
+
     st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-title">{title}</div>
         <div class="kpi-value">{value}</div>
+        {percentage_html}
     </div>
     """, unsafe_allow_html=True)
-
+    st.markdown("""
+    <style>
+    
+    .kpi-card{
+        background:#ffffff;
+        border:1px solid #e6e6e6;
+        border-radius:12px;
+        padding:14px;
+        text-align:center;
+        box-shadow:0 1px 6px rgba(0,0,0,0.08);
+        margin-bottom:10px;
+    }
+    
+    .kpi-title{
+        font-size:15px;
+        color:#666666;
+        margin-bottom:8px;
+        font-weight:600;
+    }
+    
+    .kpi-value{
+        font-size:28px;
+        font-weight:700;
+        color:#111111;
+    }
+    
+    .kpi-percentage{
+        font-size:12px;
+        color:#888888;
+        margin-top:3px;
+        font-weight:500;
+    }
+    
+    </style>
+    """, unsafe_allow_html=True)
 # ----------------------------------------------------------
 # SERVICE CLASSIFICATION
 # ----------------------------------------------------------
@@ -972,10 +1018,20 @@ from datetime import date
 min_date = date(2021, 1, 1)
 max_date = date(2027, 12, 31)
 
-# Default dates based on actual invoice data
-default_start = invoices["Invoice Date"].min().date()
-default_end = invoices["Invoice Date"].max().date()
+# Default dates = current calendar year
+current_year = pd.Timestamp.today().year
 
+default_start = date(
+    current_year,
+    1,
+    1
+)
+
+default_end = date(
+    current_year,
+    12,
+    31
+)
 with f1:
 
     start_date = st.date_input(
@@ -1175,11 +1231,40 @@ if selected_service == "Unclassified":
         use_container_width=True,
         hide_index=True
     )
+
+
+# ==========================================================
+# FINANCIAL KPI PERCENTAGES
+# ==========================================================
+
+paid_percentage = (
+    (total_paid / total_invoiced) * 100
+    if total_invoiced > 0
+    else 0
+)
+
+pending_percentage = (
+    (total_pending / total_invoiced) * 100
+    if total_invoiced > 0
+    else 0
+)
+
+future_percentage = (
+    (future_due / total_invoiced) * 100
+    if total_invoiced > 0
+    else 0
+)
+
+overdue_percentage = (
+    (overdue_due / total_invoiced) * 100
+    if total_invoiced > 0
+    else 0
+)
 # ==========================================================
 # KPI CARDS
 # ==========================================================
 
-c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
+c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
 
 if IS_FINANCIAL:
 
@@ -1204,32 +1289,31 @@ if IS_FINANCIAL:
     with c4:
         kpi_card(
             "✅ Paid",
-            f"£{total_paid:,.2f}"
+            f"£{total_paid:,.2f}",
+            paid_percentage
         )
 
     with c5:
         kpi_card(
             "⏳ Pending",
-            f"£{total_pending:,.2f}"
+            f"£{total_pending:,.2f}",
+            pending_percentage
         )
 
     with c6:
         kpi_card(
             "📅 Future Due",
-            f"£{future_due:,.2f}"
+            f"£{future_due:,.2f}",
+            future_percentage
         )
 
     with c7:
         kpi_card(
             "🔴 Overdue",
-            f"£{overdue_due:,.2f}"
+            f"£{overdue_due:,.2f}",
+            overdue_percentage
         )
-
-    with c8:
-        kpi_card(
-            "📊 Collection",
-            f"{collection_rate:.1f}%"
-        )
+        
 else:
 
     # ======================================================
@@ -1254,8 +1338,6 @@ else:
         (total_pending / total_invoiced) * 100
         if total_invoiced > 0 else 0
     )
-    
-    
     
     # ------------------------------------------------------
     # FUTURE DUE %
@@ -1610,7 +1692,7 @@ st.subheader("Customer Invoice Breakdown")
 # ----------------------------------------------------------
 show_outstanding_only = st.checkbox(
     "Show Outstanding Customers Only",
-    value=False
+    value=True
 )
 ###################################################################
 
@@ -2055,7 +2137,6 @@ st.dataframe(
 
 
 
-
 # ==========================================================
 # PART 3 - CUSTOMER DRILLDOWN
 # ==========================================================
@@ -2063,79 +2144,119 @@ st.dataframe(
 st.divider()
 st.header("🔍 Customer Details")
 
+# ==========================================================
+# INDEPENDENT CUSTOMER FILTERS
+# ==========================================================
+
+st.subheader("Customer Filters")
+
+cf1, cf2, cf3 = st.columns(3)
+
 # ----------------------------------------------------------
-# CUSTOMER SELECTION
+# CUSTOMER DATE FILTERS
 # ----------------------------------------------------------
 
-customer_list = sorted(display_df["Customer Name"].dropna().unique())
+with cf1:
+
+    customer_start_date = st.date_input(
+        "Customer Start Date",
+        value=date(
+            pd.Timestamp.today().year,
+            1,
+            1
+        ),
+        min_value=min_date,
+        max_value=max_date,
+        key="customer_start_date"
+    )
+
+with cf2:
+
+    customer_end_date = st.date_input(
+        "Customer End Date",
+        value=date(
+            pd.Timestamp.today().year,
+            12,
+            31
+        ),
+        min_value=min_date,
+        max_value=max_date,
+        key="customer_end_date"
+    )
+
+# ----------------------------------------------------------
+# CUSTOMER SERVICE FILTER
+# ----------------------------------------------------------
+
+with cf3:
+
+    customer_service_options = [
+        "All Services",
+        "SEO",
+        "Web Development",
+        "Unclassified"
+    ]
+
+    customer_selected_service = st.selectbox(
+        "Customer Service Type",
+        customer_service_options,
+        key="customer_service_type"
+    )
+
+
+# ==========================================================
+# BUILD INDEPENDENT CUSTOMER DATASET
+# ==========================================================
+
+customer_display_df = invoices[
+    (invoices["Invoice Date"] >= pd.Timestamp(customer_start_date)) &
+    (invoices["Invoice Date"] <= pd.Timestamp(customer_end_date))
+].copy()
+
+
+# ----------------------------------------------------------
+# CUSTOMER SERVICE FILTER
+# ----------------------------------------------------------
+
+if customer_selected_service != "All Services":
+
+    customer_display_df = customer_display_df[
+        customer_display_df["Service Type"]
+        == customer_selected_service
+    ].copy()
+
+
+# ==========================================================
+# CUSTOMER SELECTION
+# ==========================================================
+
+customer_list = sorted(
+    customer_display_df[
+        "Customer Name"
+    ]
+    .dropna()
+    .unique()
+)
 
 selected_customer = st.selectbox(
     "Select Customer",
-    customer_list
+    customer_list,
+    key="selected_customer"
 )
-customer_info = contacts[
-    contacts["Display Name"]
-        .astype(str)
-        .str.strip()
-        ==
-    str(selected_customer).strip()
-].copy()
-
-# ----------------------------------------------------------
-# CUSTOMER INFORMATION
-# ----------------------------------------------------------
-
-if not customer_info.empty:
-
-    info = customer_info.iloc[0]
-
-    st.subheader("Customer Information")
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-        #st.write("**Company**", info.get("Company Name", "-"))
-        customer_name = " ".join(
-            str(info.get(col, "")).strip()
-            for col in ["Salutation", "First Name", "Last Name"]
-            if pd.notna(info.get(col)) and str(info.get(col)).strip()
-        )
-        
-        st.write("**Company**", info.get("Company Name", "-"))
-        st.write("**Customer**", customer_name if customer_name else "-")
-        #st.write("**Status**", info.get("Status", "-"))
-        st.write("**Customer Since**", pd.to_datetime(info.get("Created Time")).strftime("%d-%m-%Y"))
-        st.write("**Status**", info.get("Status", "-"))
-        #st.write("**Customer Since**", pd.to_datetime(info.get("Created Time")).strftime("%d-%m-%Y"))
-        #st.write("**Customer**", info.get("Contact Name", "-"))
-
-
-    with c2:
-        address = ", ".join([
-            str(info.get("Billing Address", "")),
-            str(info.get("Billing City", "")),
-            str(info.get("Billing Code", ""))
-        ])
-
-        st.write("**Address**", address)
-        st.write("**Phone**", info.get("Phone", "-"))
-        st.write("**Mobile**", info.get("MobilePhone", "-"))
-        st.write("**Email**", info.get("EmailID", "-"))
-
-    st.divider()
 
 # ----------------------------------------------------------
 # CUSTOMER DATA
 # ----------------------------------------------------------
 
-customer_invoices = display_df[
-    display_df["Customer Name"] == selected_customer
+customer_invoices = customer_display_df[
+    customer_display_df["Customer Name"]
+    == selected_customer
 ].copy()
 
 customer_payments = payments[
-    payments["Customer Name"] == selected_customer
+    payments["Customer Name"]
+    == selected_customer
 ].copy()
-
 # ==========================================================
 # CUSTOMER KPIs
 # ==========================================================
