@@ -595,7 +595,7 @@ def load_data():
     )
     
 
-    # ------------------------------------------------------
+# ------------------------------------------------------
 # REMOVE DUPLICATE INVOICES
 # ------------------------------------------------------
 
@@ -605,13 +605,40 @@ def load_data():
         .drop_duplicates(subset="Invoice Number", keep="first")
         .reset_index(drop=True)
     )
+    # ==========================================================
+    # INVOICE TYPE - NEW vs RECURRING
+    # ==========================================================
+    
+    # Find the customer's first-ever invoice date
+    customer_first_invoice = (
+        invoices
+        .groupby("Customer Name")["Invoice Date"]
+        .min()
+    )
+    
+    # Add first-ever invoice date to every invoice
+    invoices["First Customer Invoice Date"] = (
+        invoices["Customer Name"]
+        .map(customer_first_invoice)
+    )
+
+    # ----------------------------------------------------------
+    # CLASSIFY EACH INVOICE
+    # ----------------------------------------------------------
+    
+    invoices["Invoice Type"] = np.where(
+        invoices["Invoice Date"]
+        == invoices["First Customer Invoice Date"],
+        "New Customer",
+        "Recurring Customer"
+    )
 
 
 
 
 
 
-        # ------------------------------------------------------
+    # ------------------------------------------------------
     # ENTITY ID CHECK
     # ------------------------------------------------------
     
@@ -1107,7 +1134,7 @@ st.subheader("Filters")
 # DATE FILTERS
 # ----------------------------------------------------------
 
-f1, f2, f3, f4, f5 = st.columns(5)
+f1, f2, f3, f4 = st.columns(4)
 
 from datetime import date
 
@@ -1166,38 +1193,21 @@ with f3:
     )
 
 # ----------------------------------------------------------
-# CUSTOMER TYPE FILTER
+# INVOICE TYPE FILTER
 # ----------------------------------------------------------
 
 with f4:
 
-    customer_type_options = [
-        "All Customers",
+    invoice_type_options = [
+        "All Invoices",
         "New Customer",
         "Recurring Customer"
     ]
 
-    selected_customer_type = st.selectbox(
-        "Customer Type",
-        customer_type_options,
-        key="main_customer_type"
-    )
-# ----------------------------------------------------------
-# CUSTOMER STATUS FILTER
-# ----------------------------------------------------------
-
-with f5:
-
-    customer_status_options = [
-        "All Customers",
-        "Active",
-        "Inactive"
-    ]
-
-    selected_customer_status = st.selectbox(
-        "Customer Status",
-        customer_status_options,
-        key="main_customer_status"
+    selected_invoice_type = st.selectbox(
+        "Invoice Type",
+        invoice_type_options,
+        key="main_invoice_type"
     )
 
 # ==========================================================
@@ -1219,24 +1229,14 @@ if selected_service != "All Services":
         display_df["Service Type"] == selected_service
     ].copy()
 # ----------------------------------------------------------
-# CUSTOMER TYPE FILTER
+# INVOICE TYPE FILTER
 # ----------------------------------------------------------
 
-if selected_customer_type != "All Customers":
+if selected_invoice_type != "All Invoices":
 
     display_df = display_df[
-        display_df["Customer Type"]
-        == selected_customer_type
-    ].copy()
-# ----------------------------------------------------------
-# CUSTOMER STATUS FILTER
-# ----------------------------------------------------------
-
-if selected_customer_status != "All Customers":
-
-    display_df = display_df[
-        display_df["Customer Status"]
-        == selected_customer_status
+        display_df["Invoice Type"]
+        == selected_invoice_type
     ].copy()
 
 
@@ -2303,7 +2303,7 @@ st.header("🔍 Customer Details")
 
 st.subheader("Customer Filters")
 
-cf1, cf2, cf3, cf4, cf5 = st.columns(5)
+cf1, cf2, cf3, cf4 = st.columns(4)
 
 # ----------------------------------------------------------
 # CUSTOMER DATE FILTERS
@@ -2357,41 +2357,22 @@ with cf3:
     )
 
 # ----------------------------------------------------------
-# CUSTOMER TYPE FILTER
+# CUSTOMER INVOICE TYPE FILTER
 # ----------------------------------------------------------
 
 with cf4:
 
-    customer_detail_type_options = [
-        "All Customers",
+    customer_invoice_type_options = [
+        "All Invoices",
         "New Customer",
         "Recurring Customer"
     ]
 
-    customer_selected_type = st.selectbox(
-        "Customer Type",
-        customer_detail_type_options,
-        key="customer_detail_type"
+    customer_selected_invoice_type = st.selectbox(
+        "Invoice Type",
+        customer_invoice_type_options,
+        key="customer_invoice_type"
     )
-
-# ----------------------------------------------------------
-# CUSTOMER STATUS FILTER
-# ----------------------------------------------------------
-
-with cf5:
-
-    customer_detail_status_options = [
-        "All Customers",
-        "Active",
-        "Inactive"
-    ]
-
-    customer_selected_status = st.selectbox(
-        "Customer Status",
-        customer_detail_status_options,
-        key="customer_detail_status"
-    )
-
 
 # ==========================================================
 # BUILD INDEPENDENT CUSTOMER DATASET
@@ -2414,28 +2395,15 @@ if customer_selected_service != "All Services":
         == customer_selected_service
     ].copy()
 # ----------------------------------------------------------
-# CUSTOMER TYPE FILTER
+# CUSTOMER INVOICE TYPE FILTER
 # ----------------------------------------------------------
 
-if customer_selected_type != "All Customers":
+if customer_selected_invoice_type != "All Invoices":
 
     customer_display_df = customer_display_df[
-        customer_display_df["Customer Type"]
-        == customer_selected_type
+        customer_display_df["Invoice Type"]
+        == customer_selected_invoice_type
     ].copy()
-
-
-# ----------------------------------------------------------
-# CUSTOMER STATUS FILTER
-# ----------------------------------------------------------
-
-if customer_selected_status != "All Customers":
-
-    customer_display_df = customer_display_df[
-        customer_display_df["Customer Status"]
-        == customer_selected_status
-    ].copy()
-
 # ==========================================================
 # CUSTOMER SELECTION
 # ==========================================================
