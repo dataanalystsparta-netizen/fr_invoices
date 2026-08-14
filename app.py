@@ -1029,64 +1029,7 @@ def load_data():
 
     contacts = pd.read_excel(CONTACTS_FILE)
     contacts.columns = contacts.columns.str.strip()
-    # ==========================================================
-    # CUSTOMER CONTACT DETAILS / STATUS
-    # ==========================================================
-    
-    if "Display Name" in contacts.columns:
-    
-        contact_lookup = contacts.copy()
-    
-        contact_lookup["Customer Name"] = (
-            contact_lookup["Display Name"]
-            .astype(str)
-            .str.strip()
-        )
-    
-        contact_columns = [
-            "Customer Name"
-        ]
-    
-        for col in [
-            "Status",
-            "Phone",
-            "MobilePhone",
-            "EmailID",
-            "Company Name"
-        ]:
-    
-            if col in contact_lookup.columns:
-                contact_columns.append(col)
-    
-        contact_lookup = contact_lookup[
-            contact_columns
-        ]
-    
-        invoices["Customer Name"] = (
-            invoices["Customer Name"]
-            .astype(str)
-            .str.strip()
-        )
-    
-        invoices = invoices.merge(
-            contact_lookup,
-            on="Customer Name",
-            how="left"
-        )
-    
-        invoices["Customer Status"] = (
-            invoices["Status"]
-            .fillna("Unknown")
-            .astype(str)
-            .str.strip()
-            .str.title()
-        )
-    
-    else:
-    
-        invoices["Customer Status"] = "Unknown"
-
-
+  
 
     
     return (
@@ -1134,7 +1077,7 @@ st.subheader("Filters")
 # DATE FILTERS
 # ----------------------------------------------------------
 
-f1, f2, f3, f4 = st.columns(4)
+f1, f2, f3, f4, f5 = st.columns(5)
 
 from datetime import date
 
@@ -1210,6 +1153,23 @@ with f4:
         key="main_invoice_type"
     )
 
+# ----------------------------------------------------------
+# CUSTOMER STATUS FILTER
+# ----------------------------------------------------------
+
+with f5:
+
+    customer_status_options = [
+        "All Customers",
+        "Active",
+        "Inactive"
+    ]
+
+    selected_customer_status = st.selectbox(
+        "Customer Status",
+        customer_status_options,
+        key="main_customer_status"
+    )
 # ==========================================================
 # APPLY FILTERS
 # ==========================================================
@@ -1238,7 +1198,30 @@ if selected_invoice_type != "All Invoices":
         display_df["Invoice Type"]
         == selected_invoice_type
     ].copy()
+# ----------------------------------------------------------
+# CUSTOMER STATUS FILTER
+# ----------------------------------------------------------
 
+if selected_customer_status != "All Customers":
+
+    selected_status_customers = set(
+        contacts[
+            contacts["Status"]
+            .astype(str)
+            .str.strip()
+            .str.title()
+            == selected_customer_status
+        ]["Display Name"]
+        .astype(str)
+        .str.strip()
+    )
+
+    display_df = display_df[
+        display_df["Customer Name"]
+        .astype(str)
+        .str.strip()
+        .isin(selected_status_customers)
+    ].copy()
 
 # ----------------------------------------------------------
 # RECALCULATE KPIs
@@ -2303,7 +2286,7 @@ st.header("🔍 Customer Details")
 
 st.subheader("Customer Filters")
 
-cf1, cf2, cf3, cf4 = st.columns(4)
+cf1, cf2, cf3, cf4, cf5 = st.columns(5)
 
 # ----------------------------------------------------------
 # CUSTOMER DATE FILTERS
@@ -2374,6 +2357,24 @@ with cf4:
         key="customer_invoice_type"
     )
 
+# ----------------------------------------------------------
+# CUSTOMER STATUS FILTER
+# ----------------------------------------------------------
+
+with cf5:
+
+    customer_status_options = [
+        "All Customers",
+        "Active",
+        "Inactive"
+    ]
+
+    customer_selected_status = st.selectbox(
+        "Customer Status",
+        customer_status_options,
+        key="customer_detail_status"
+    )
+
 # ==========================================================
 # BUILD INDEPENDENT CUSTOMER DATASET
 # ==========================================================
@@ -2404,17 +2405,32 @@ if customer_selected_invoice_type != "All Invoices":
         customer_display_df["Invoice Type"]
         == customer_selected_invoice_type
     ].copy()
-# ==========================================================
-# CUSTOMER SELECTION
-# ==========================================================
 
-customer_list = sorted(
-    customer_display_df[
-        "Customer Name"
-    ]
-    .dropna()
-    .unique()
-)
+# ----------------------------------------------------------
+# CUSTOMER STATUS FILTER
+# ----------------------------------------------------------
+
+if customer_selected_status != "All Customers":
+
+    selected_status_customers = set(
+        contacts[
+            contacts["Status"]
+            .astype(str)
+            .str.strip()
+            .str.title()
+            == customer_selected_status
+        ]["Display Name"]
+        .astype(str)
+        .str.strip()
+    )
+
+    customer_display_df = customer_display_df[
+        customer_display_df["Customer Name"]
+        .astype(str)
+        .str.strip()
+        .isin(selected_status_customers)
+    ].copy()
+
 
 # ==========================================================
 # CUSTOMER SELECTION
@@ -2456,6 +2472,143 @@ customer_payments = payments[
     payments["Customer Name"]
     == selected_customer
 ].copy()
+
+# ==========================================================
+# CUSTOMER INFORMATION
+# ==========================================================
+
+customer_info = contacts[
+    contacts["Display Name"]
+    .astype(str)
+    .str.strip()
+    ==
+    str(selected_customer).strip()
+].copy()
+
+
+if not customer_info.empty:
+
+    info = customer_info.iloc[0]
+
+    st.subheader("Customer Information")
+
+    # ------------------------------------------------------
+    # CUSTOMER NAME
+    # ------------------------------------------------------
+
+    customer_name = str(
+        info.get("Display Name", selected_customer)
+    ).strip()
+
+    # ------------------------------------------------------
+    # PHONE NUMBERS
+    # ------------------------------------------------------
+
+    phone_number = str(
+        info.get("Phone", "")
+    ).strip()
+
+    alt_number = str(
+        info.get("Billing Phone", "")
+    ).strip()
+
+    mobile_number = str(
+        info.get("MobilePhone", "")
+    ).strip()
+
+    # ------------------------------------------------------
+    # EMAIL
+    # ------------------------------------------------------
+
+    email_address = str(
+        info.get("EmailID", "")
+    ).strip()
+
+    # ------------------------------------------------------
+    # STATUS
+    # ------------------------------------------------------
+
+    customer_status = str(
+        info.get("Status", "Unknown")
+    ).strip()
+
+    # ------------------------------------------------------
+    # ADDRESS
+    # ------------------------------------------------------
+
+    address_parts = []
+
+    for col in [
+        "Billing Address",
+        "Billing Street2",
+        "Billing City",
+        "Billing State",
+        "Billing Country",
+        "Billing County",
+        "Billing Code"
+    ]:
+
+        value = info.get(col, "")
+
+        if pd.notna(value):
+
+            value = str(value).strip()
+
+            if value:
+                address_parts.append(value)
+
+    customer_address = ", ".join(
+        address_parts
+    )
+
+    # ------------------------------------------------------
+    # DISPLAY
+    # ------------------------------------------------------
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+
+        st.write(
+            "**Customer Name:**",
+            customer_name or "-"
+        )
+
+        st.write(
+            "**Phone Number:**",
+            phone_number or "-"
+        )
+
+        st.write(
+            "**Alt Number:**",
+            alt_number or "-"
+        )
+
+        st.write(
+            "**Mobile Number:**",
+            mobile_number or "-"
+        )
+
+    with c2:
+
+        st.write(
+            "**Email:**",
+            email_address or "-"
+        )
+
+        st.write(
+            "**Address:**",
+            customer_address or "-"
+        )
+
+        st.write(
+            "**Status:**",
+            customer_status or "-"
+        )
+
+    st.divider()
+
+
 # ==========================================================
 # CUSTOMER KPIs
 # ==========================================================
