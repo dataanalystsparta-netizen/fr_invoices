@@ -680,6 +680,36 @@ def load_data():
     invoices["Outstanding"] = (
         invoices["Calculated Outstanding"]
     )
+
+    # ==========================================================
+    # CUSTOMER CLASSIFICATION
+    # ==========================================================
+    
+    # First-ever invoice date for each customer
+    customer_first_invoice = (
+        invoices
+        .groupby("Customer Name")["Invoice Date"]
+        .min()
+    )
+    
+    invoices["First Customer Invoice Date"] = (
+        invoices["Customer Name"]
+        .map(customer_first_invoice)
+    )
+    
+    # ----------------------------------------------------------
+    # NEW vs RECURRING
+    # ----------------------------------------------------------
+    
+    invoices["Customer Type"] = np.where(
+        invoices["Invoice Date"]
+        == invoices["First Customer Invoice Date"],
+        "New Customer",
+        "Recurring Customer"
+    )
+
+
+    
     # ------------------------------------------------------
     # ZOHO BALANCE RECONCILIATION
     # ------------------------------------------------------
@@ -972,6 +1002,62 @@ def load_data():
 
     contacts = pd.read_excel(CONTACTS_FILE)
     contacts.columns = contacts.columns.str.strip()
+    # ==========================================================
+    # CUSTOMER CONTACT DETAILS / STATUS
+    # ==========================================================
+    
+    if "Display Name" in contacts.columns:
+    
+        contact_lookup = contacts.copy()
+    
+        contact_lookup["Customer Name"] = (
+            contact_lookup["Display Name"]
+            .astype(str)
+            .str.strip()
+        )
+    
+        contact_columns = [
+            "Customer Name"
+        ]
+    
+        for col in [
+            "Status",
+            "Phone",
+            "MobilePhone",
+            "EmailID",
+            "Company Name"
+        ]:
+    
+            if col in contact_lookup.columns:
+                contact_columns.append(col)
+    
+        contact_lookup = contact_lookup[
+            contact_columns
+        ]
+    
+        invoices["Customer Name"] = (
+            invoices["Customer Name"]
+            .astype(str)
+            .str.strip()
+        )
+    
+        invoices = invoices.merge(
+            contact_lookup,
+            on="Customer Name",
+            how="left"
+        )
+    
+        invoices["Customer Status"] = (
+            invoices["Status"]
+            .fillna("Unknown")
+            .astype(str)
+            .str.strip()
+            .str.title()
+        )
+    
+    else:
+    
+        invoices["Customer Status"] = "Unknown"
 
 
 
@@ -1021,7 +1107,7 @@ st.subheader("Filters")
 # DATE FILTERS
 # ----------------------------------------------------------
 
-f1, f2, f3 = st.columns(3)
+f1, f2, f3, f4, f5 = st.columns(5)
 
 from datetime import date
 
@@ -1079,6 +1165,40 @@ with f3:
         service_options
     )
 
+# ----------------------------------------------------------
+# CUSTOMER TYPE FILTER
+# ----------------------------------------------------------
+
+with f4:
+
+    customer_type_options = [
+        "All Customers",
+        "New Customer",
+        "Recurring Customer"
+    ]
+
+    selected_customer_type = st.selectbox(
+        "Customer Type",
+        customer_type_options,
+        key="main_customer_type"
+    )
+# ----------------------------------------------------------
+# CUSTOMER STATUS FILTER
+# ----------------------------------------------------------
+
+with f5:
+
+    customer_status_options = [
+        "All Customers",
+        "Active",
+        "Inactive"
+    ]
+
+    selected_customer_status = st.selectbox(
+        "Customer Status",
+        customer_status_options,
+        key="main_customer_status"
+    )
 
 # ==========================================================
 # APPLY FILTERS
@@ -1098,6 +1218,28 @@ if selected_service != "All Services":
     display_df = display_df[
         display_df["Service Type"] == selected_service
     ].copy()
+# ----------------------------------------------------------
+# CUSTOMER TYPE FILTER
+# ----------------------------------------------------------
+
+if selected_customer_type != "All Customers":
+
+    display_df = display_df[
+        display_df["Customer Type"]
+        == selected_customer_type
+    ].copy()
+# ----------------------------------------------------------
+# CUSTOMER STATUS FILTER
+# ----------------------------------------------------------
+
+if selected_customer_status != "All Customers":
+
+    display_df = display_df[
+        display_df["Customer Status"]
+        == selected_customer_status
+    ].copy()
+
+
 # ----------------------------------------------------------
 # RECALCULATE KPIs
 # ----------------------------------------------------------
@@ -2161,7 +2303,7 @@ st.header("🔍 Customer Details")
 
 st.subheader("Customer Filters")
 
-cf1, cf2, cf3 = st.columns(3)
+cf1, cf2, cf3, cf4, cf5 = st.columns(5)
 
 # ----------------------------------------------------------
 # CUSTOMER DATE FILTERS
@@ -2214,6 +2356,42 @@ with cf3:
         key="customer_service_type"
     )
 
+# ----------------------------------------------------------
+# CUSTOMER TYPE FILTER
+# ----------------------------------------------------------
+
+with cf4:
+
+    customer_detail_type_options = [
+        "All Customers",
+        "New Customer",
+        "Recurring Customer"
+    ]
+
+    customer_selected_type = st.selectbox(
+        "Customer Type",
+        customer_detail_type_options,
+        key="customer_detail_type"
+    )
+
+# ----------------------------------------------------------
+# CUSTOMER STATUS FILTER
+# ----------------------------------------------------------
+
+with cf5:
+
+    customer_detail_status_options = [
+        "All Customers",
+        "Active",
+        "Inactive"
+    ]
+
+    customer_selected_status = st.selectbox(
+        "Customer Status",
+        customer_detail_status_options,
+        key="customer_detail_status"
+    )
+
 
 # ==========================================================
 # BUILD INDEPENDENT CUSTOMER DATASET
@@ -2235,7 +2413,28 @@ if customer_selected_service != "All Services":
         customer_display_df["Service Type"]
         == customer_selected_service
     ].copy()
+# ----------------------------------------------------------
+# CUSTOMER TYPE FILTER
+# ----------------------------------------------------------
 
+if customer_selected_type != "All Customers":
+
+    customer_display_df = customer_display_df[
+        customer_display_df["Customer Type"]
+        == customer_selected_type
+    ].copy()
+
+
+# ----------------------------------------------------------
+# CUSTOMER STATUS FILTER
+# ----------------------------------------------------------
+
+if customer_selected_status != "All Customers":
+
+    customer_display_df = customer_display_df[
+        customer_display_df["Customer Status"]
+        == customer_selected_status
+    ].copy()
 
 # ==========================================================
 # CUSTOMER SELECTION
@@ -2249,12 +2448,33 @@ customer_list = sorted(
     .unique()
 )
 
-selected_customer = st.selectbox(
-    "Select Customer",
-    customer_list,
-    key="selected_customer"
+# ==========================================================
+# CUSTOMER SELECTION
+# ==========================================================
+
+customer_list = sorted(
+    customer_display_df[
+        "Customer Name"
+    ]
+    .dropna()
+    .unique()
 )
 
+if customer_list:
+
+    selected_customer = st.selectbox(
+        "Select Customer",
+        customer_list,
+        key="selected_customer"
+    )
+
+else:
+
+    st.info(
+        "No customers match the selected filters."
+    )
+
+    st.stop()
 # ----------------------------------------------------------
 # CUSTOMER DATA
 # ----------------------------------------------------------
