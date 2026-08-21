@@ -1639,7 +1639,7 @@ monthly_invoice_summary = (
 # PAYMENT MONTH ANALYSIS
 # ==========================================================
 
-# Only payments belonging to the invoices currently visible
+# Only payments belonging to invoices currently visible
 # in the main dashboard filters are included.
 
 filtered_invoice_numbers = set(
@@ -1655,9 +1655,13 @@ monthly_payments = payments[
     .isin(filtered_invoice_numbers)
 ].copy()
 
-# ----------------------------------------------------------
-# Attach the original Invoice Date to each payment
-# ----------------------------------------------------------
+
+# ==========================================================
+# ATTACH ORIGINAL INVOICE DATE
+# ==========================================================
+
+# Use a differently named column so we do not collide with
+# any Invoice Date column already present in the payment file.
 
 invoice_dates_lookup = invoices[
     [
@@ -1672,6 +1676,12 @@ invoice_dates_lookup["Invoice Number"] = (
     .str.strip()
 )
 
+invoice_dates_lookup = invoice_dates_lookup.rename(
+    columns={
+        "Invoice Date": "Original Invoice Date"
+    }
+)
+
 monthly_payments["Invoice Number"] = (
     monthly_payments["Invoice Number"]
     .astype(str)
@@ -1684,9 +1694,10 @@ monthly_payments = monthly_payments.merge(
     how="left"
 )
 
-# ----------------------------------------------------------
-# Payment Month
-# ----------------------------------------------------------
+
+# ==========================================================
+# PAYMENT MONTH
+# ==========================================================
 
 monthly_payments["Payment Month"] = (
     monthly_payments["Date"]
@@ -1694,19 +1705,21 @@ monthly_payments["Payment Month"] = (
     .astype(str)
 )
 
-# ----------------------------------------------------------
-# Invoice Month
-# ----------------------------------------------------------
+
+# ==========================================================
+# ORIGINAL INVOICE MONTH
+# ==========================================================
 
 monthly_payments["Invoice Month"] = (
-    monthly_payments["Invoice Date"]
+    monthly_payments["Original Invoice Date"]
     .dt.to_period("M")
     .astype(str)
 )
 
-# ----------------------------------------------------------
-# Current Month vs Older Invoice
-# ----------------------------------------------------------
+
+# ==========================================================
+# CURRENT MONTH vs OLDER INVOICE
+# ==========================================================
 
 monthly_payments["Payment Type"] = np.where(
     monthly_payments["Payment Month"]
