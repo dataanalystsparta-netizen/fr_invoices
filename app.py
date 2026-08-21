@@ -1613,7 +1613,6 @@ with st.expander(
             "✅ Invoice/Payment data reconciles with AR files."
         )
 
-
 # ----------------------------------------------------------
 # MONTHLY BREAKDOWN
 # ----------------------------------------------------------
@@ -1621,19 +1620,228 @@ with st.expander(
 st.subheader("Monthly Invoice Summary")
 
 # ==========================================================
-# CREATE MONTHLY SUMMARY FROM FILTERED DATA
+# MONTHLY INVOICE SUMMARY
 # ==========================================================
 
-monthly_display = (
+monthly_invoice_summary = (
     display_df
     .groupby("Month", as_index=False)
     .agg(
         Customers=("Customer Name", "nunique"),
         Invoices=("Invoice Number", "nunique"),
         Total_Invoiced=("Total", "sum"),
-        Total_Paid=("Paid", "sum"),
         Outstanding=("Calculated Outstanding", "sum")
     )
+    .sort_values("Month")
+    .reset_index(drop=True)
+)
+# ==========================================================
+# PAYMENT MONTH ANALYSIS
+# ==========================================================
+
+# Only payments belonging to the invoices currently visible
+# in the main dashboard filters are included.
+
+filtered_invoice_numbers = set(
+    display_df["Invoice Number"]
+    .astype(str)
+    .str.strip()
+)
+
+monthly_payments = payments[
+    payments["Invoice Number"]
+    .astype(str)
+    .str.strip()
+    .isin(filtered_invoice_numbers)
+].copy()
+
+# ----------------------------------------------------------
+# Attach the original Invoice Date to each payment
+# ----------------------------------------------------------
+
+invoice_dates_lookup = invoices[
+    [
+        "Invoice Number",
+        "Invoice Date"
+    ]
+].copy()
+
+invoice_dates_lookup["Invoice Number"] = (
+    invoice_dates_lookup["Invoice Number"]
+    .astype(str)
+    .str.strip()
+)
+
+monthly_payments["Invoice Number"] = (
+    monthly_payments["Invoice Number"]
+    .astype(str)
+    .str.strip()
+)
+
+monthly_payments = monthly_payments.merge(
+    invoice_dates_lookup,
+    on="Invoice Number",
+    how="left"
+)
+
+# ----------------------------------------------------------
+# Payment Month
+# ----------------------------------------------------------
+
+monthly_payments["Payment Month"] = (
+    monthly_payments["Date"]
+    .dt.to_period("M")
+    .astype(str)
+)
+
+# ----------------------------------------------------------
+# Invoice Month
+# ----------------------------------------------------------
+
+monthly_payments["Invoice Month"] = (
+    monthly_payments["Invoice Date"]
+    .dt.to_period("M")
+    .astype(str)
+)
+
+# ----------------------------------------------------------
+# Current Month vs Older Invoice
+# ----------------------------------------------------------
+
+monthly_payments["Payment Type"] = np.where(
+    monthly_payments["Payment Month"]
+    ==
+    monthly_payments["Invoice Month"],
+    "Current Invoice",
+    "Older Invoice"
+)
+
+# ==========================================================
+# MONTHLY PAYMENT TOTALS
+# ==========================================================
+
+monthly_payment_summary = (
+    monthly_payments
+    .groupby(
+        [
+            "Payment Month",
+            "Payment Type"
+        ],
+        as_index=False
+    )
+    .agg(
+        Payment_Amount=(
+            "Amount Applied to Invoice",
+            "sum"
+        )
+    )
+)
+
+# ----------------------------------------------------------
+# Pivot Current vs Older payments
+# ----------------------------------------------------------
+
+monthly_payment_summary = (
+    monthly_payment_summary
+    .pivot(
+        index="Payment Month",
+        columns="Payment Type",
+        values="Payment_Amount"
+    )
+    .fillna(0)
+    .reset_index()
+)
+
+# ----------------------------------------------------------
+# Make sure both columns always exist
+# ----------------------------------------------------------
+
+if "Current Invoice" not in monthly_payment_summary.columns:
+
+    monthly_payment_summary["Current Invoice"] = 0
+
+if "Older Invoice" not in monthly_payment_summary.columns:
+
+    monthly_payment_summary["Older Invoice"] = 0
+
+# ----------------------------------------------------------
+# Rename
+# ----------------------------------------------------------
+
+monthly_payment_summary = (
+    monthly_payment_summary
+    .rename(
+        columns={
+            "Payment Month": "Month",
+            "Current Invoice": "Paid_Current_Month",
+            "Older Invoice": "Paid_Older_Invoices"
+        }
+    )
+)
+
+# ----------------------------------------------------------
+# Total Paid
+# ----------------------------------------------------------
+
+monthly_payment_summary["Total_Paid"] = (
+    monthly_payment_summary["Paid_Current_Month"]
+    +
+    monthly_payment_summary["Paid_Older_Invoices"]
+)
+# ==========================================================
+# COMBINE MONTHLY INVOICE + PAYMENT DATA
+# ==========================================================
+
+monthly_display = monthly_invoice_summary.merge(
+    monthly_payment_summary[
+        [
+            "Month",
+            "Paid_Current_Month",
+            "Paid_Older_Invoices",
+            "Total_Paid"
+        ]
+    ],
+    on="Month",
+    how="outer"
+)
+
+# ----------------------------------------------------------
+# Fill months with no payments
+# ----------------------------------------------------------
+
+for col in [
+    "Paid_Current_Month",
+    "Paid_Older_Invoices",
+    "Total_Paid"
+]:
+
+    monthly_display[col] = (
+        monthly_display[col]
+        .fillna(0)
+    )
+
+# ----------------------------------------------------------
+# Fill months with no invoices
+# ----------------------------------------------------------
+
+for col in [
+    "Customers",
+    "Invoices",
+    "Total_Invoiced",
+    "Outstanding"
+]:
+
+    monthly_display[col] = (
+        monthly_display[col]
+        .fillna(0)
+    )
+
+# ----------------------------------------------------------
+# Sort
+# ----------------------------------------------------------
+
+monthly_display = (
+    monthly_display
     .sort_values("Month")
     .reset_index(drop=True)
 )
@@ -1653,8 +1861,18 @@ if IS_FINANCIAL:
         "Customers": display_df["Customer Name"].nunique(),
         "Invoices": display_df["Invoice Number"].nunique(),
         "Total_Invoiced": display_df["Total"].sum(),
-        "Total_Paid": display_df["Paid"].sum(),
-        "Outstanding": display_df["Calculated Outstanding"].sum()
+        "Paid_Current_Month": monthly_display[
+            "Paid_Current_Month"
+        ].sum(),
+        "Paid_Older_Invoices": monthly_display[
+            "Paid_Older_Invoices"
+        ].sum(),
+        "Total_Paid": monthly_display[
+            "Total_Paid"
+        ].sum(),
+        "Outstanding": display_df[
+            "Calculated Outstanding"
+        ].sum()
     }])
 
     monthly_display = pd.concat(
@@ -1669,20 +1887,20 @@ if IS_FINANCIAL:
     # FORMAT FINANCIAL VALUES
     # ------------------------------------------------------
 
-    monthly_display["Total_Invoiced"] = (
-        monthly_display["Total_Invoiced"]
-        .apply(lambda x: f"£{x:,.2f}")
-    )
+    for col in [
+        "Total_Invoiced",
+        "Paid_Current_Month",
+        "Paid_Older_Invoices",
+        "Total_Paid",
+        "Outstanding"
+    ]:
 
-    monthly_display["Total_Paid"] = (
-        monthly_display["Total_Paid"]
-        .apply(lambda x: f"£{x:,.2f}")
-    )
-
-    monthly_display["Outstanding"] = (
-        monthly_display["Outstanding"]
-        .apply(lambda x: f"£{x:,.2f}")
-    )
+        monthly_display[col] = (
+            monthly_display[col]
+            .apply(
+                lambda x: f"£{x:,.2f}"
+            )
+        )
 
     # ------------------------------------------------------
     # RENAME COLUMNS
@@ -1691,8 +1909,14 @@ if IS_FINANCIAL:
     monthly_display = monthly_display.rename(
         columns={
             "Total_Invoiced": "Invoiced",
-            "Total_Paid": "Paid",
-            "Outstanding": "Outstanding"
+            "Paid_Current_Month":
+                "Paid – Current Invoice Month",
+            "Paid_Older_Invoices":
+                "Paid – Older Invoices",
+            "Total_Paid":
+                "Total Paid",
+            "Outstanding":
+                "Outstanding"
         }
     )
 
@@ -1711,23 +1935,60 @@ else:
     monthly_percentage = monthly_display.copy()
 
     # ------------------------------------------------------
-    # CALCULATE PERCENTAGES
+    # Current Invoice Month Paid %
     # ------------------------------------------------------
 
-    monthly_percentage["Paid %"] = np.where(
+    monthly_percentage["Paid – Current %"] = np.where(
         monthly_percentage["Total_Invoiced"] > 0,
         (
-            monthly_percentage["Total_Paid"]
-            / monthly_percentage["Total_Invoiced"]
+            monthly_percentage["Paid_Current_Month"]
+            /
+            monthly_percentage["Total_Invoiced"]
         ) * 100,
         0
     )
+
+    # ------------------------------------------------------
+    # Older Invoice Paid %
+    # ------------------------------------------------------
+
+    monthly_percentage["Paid – Older %"] = np.where(
+        monthly_percentage["Total_Invoiced"] > 0,
+        (
+            monthly_percentage["Paid_Older_Invoices"]
+            /
+            monthly_percentage["Total_Invoiced"]
+        ) * 100,
+        0
+    )
+
+    # ------------------------------------------------------
+    # Total Paid %
+    #
+    # This CAN exceed 100%.
+    # That is intentional.
+    # ------------------------------------------------------
+
+    monthly_percentage["Total Paid %"] = np.where(
+        monthly_percentage["Total_Invoiced"] > 0,
+        (
+            monthly_percentage["Total_Paid"]
+            /
+            monthly_percentage["Total_Invoiced"]
+        ) * 100,
+        0
+    )
+
+    # ------------------------------------------------------
+    # Outstanding %
+    # ------------------------------------------------------
 
     monthly_percentage["Outstanding %"] = np.where(
         monthly_percentage["Total_Invoiced"] > 0,
         (
             monthly_percentage["Outstanding"]
-            / monthly_percentage["Total_Invoiced"]
+            /
+            monthly_percentage["Total_Invoiced"]
         ) * 100,
         0
     )
@@ -1737,32 +1998,76 @@ else:
     # ------------------------------------------------------
 
     total_invoice = display_df["Total"].sum()
-    total_paid_value = display_df["Paid"].sum()
-    total_outstanding = display_df["Balance"].sum()
 
-    total_paid_pct = (
-        total_paid_value / total_invoice * 100
-        if total_invoice > 0 else 0
+    total_paid_current = (
+        monthly_display[
+            "Paid_Current_Month"
+        ].sum()
     )
 
-    total_outstanding_pct = (
-        total_outstanding / total_invoice * 100
-        if total_invoice > 0 else 0
+    total_paid_older = (
+        monthly_display[
+            "Paid_Older_Invoices"
+        ].sum()
+    )
+
+    total_paid_value = (
+        monthly_display[
+            "Total_Paid"
+        ].sum()
+    )
+
+    total_outstanding = (
+        display_df[
+            "Calculated Outstanding"
+        ].sum()
     )
 
     percentage_total_row = pd.DataFrame([{
+
         "Month": "TOTAL",
-        "Customers": display_df["Customer Name"].nunique(),
-        "Invoices": display_df["Invoice Number"].nunique(),
-        "Total_Invoiced": total_invoice,
-        "Total_Paid": total_paid_value,
-        "Outstanding": total_outstanding,
-        "Paid %": total_paid_pct,
-        "Outstanding %": total_outstanding_pct
+
+        "Customers":
+            display_df[
+                "Customer Name"
+            ].nunique(),
+
+        "Invoices":
+            display_df[
+                "Invoice Number"
+            ].nunique(),
+
+        "Paid – Current %": (
+            total_paid_current
+            / total_invoice * 100
+            if total_invoice > 0
+            else 0
+        ),
+
+        "Paid – Older %": (
+            total_paid_older
+            / total_invoice * 100
+            if total_invoice > 0
+            else 0
+        ),
+
+        "Total Paid %": (
+            total_paid_value
+            / total_invoice * 100
+            if total_invoice > 0
+            else 0
+        ),
+
+        "Outstanding %": (
+            total_outstanding
+            / total_invoice * 100
+            if total_invoice > 0
+            else 0
+        )
     }])
 
     # ------------------------------------------------------
-    # KEEP ONLY REQUIRED COLUMNS
+    # KEEP REQUIRED COLUMNS
     # ------------------------------------------------------
 
     monthly_percentage = monthly_percentage[
@@ -1770,51 +2075,48 @@ else:
             "Month",
             "Customers",
             "Invoices",
-            "Paid %",
+            "Paid – Current %",
+            "Paid – Older %",
+            "Total Paid %",
             "Outstanding %"
         ]
     ]
 
     # ------------------------------------------------------
-    # ADD TOTAL ROW
+    # ADD TOTAL
     # ------------------------------------------------------
 
     monthly_percentage = pd.concat(
         [
             monthly_percentage,
-            percentage_total_row[
-                [
-                    "Month",
-                    "Customers",
-                    "Invoices",
-                    "Paid %",
-                    "Outstanding %"
-                ]
-            ]
+            percentage_total_row
         ],
         ignore_index=True
     )
 
     # ------------------------------------------------------
-    # FORMAT PERCENTAGES
+    # FORMAT %
     # ------------------------------------------------------
 
-    monthly_percentage["Paid %"] = (
-        monthly_percentage["Paid %"]
-        .map(lambda x: f"{x:.1f}%")
-    )
+    for col in [
+        "Paid – Current %",
+        "Paid – Older %",
+        "Total Paid %",
+        "Outstanding %"
+    ]:
 
-    monthly_percentage["Outstanding %"] = (
-        monthly_percentage["Outstanding %"]
-        .map(lambda x: f"{x:.1f}%")
-    )
+        monthly_percentage[col] = (
+            monthly_percentage[col]
+            .map(
+                lambda x: f"{x:.1f}%"
+            )
+        )
 
     st.dataframe(
         monthly_percentage,
         width="stretch",
         hide_index=True
     )
-
 st.divider()
 
 # ----------------------------------------------------------
