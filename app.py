@@ -1,16 +1,18 @@
 # ==========================================================
 # ZOHO ACCOUNTS RECEIVABLE DASHBOARD
-# PART 1 - IMPORTS, DATA LOADING & PREPARATION
+# COMPLETE SCRIPT
 # ==========================================================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
+from datetime import date
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # PAGE CONFIG
-# ----------------------------------------------------------
+# ==========================================================
 
 st.set_page_config(
     page_title="FastRanking Dashboard",
@@ -18,22 +20,15 @@ st.set_page_config(
     layout="wide"
 )
 
+
 # ==========================================================
 # LOGIN / AUTHENTICATION
 # ==========================================================
 
 def check_login():
 
-    # ------------------------------------------------------
-    # Already logged in
-    # ------------------------------------------------------
-
     if st.session_state.get("authenticated", False):
         return True
-
-    # ------------------------------------------------------
-    # Login Page
-    # ------------------------------------------------------
 
     st.markdown(
         """
@@ -104,10 +99,6 @@ def check_login():
         unsafe_allow_html=True
     )
 
-    # ------------------------------------------------------
-    # Validate Login
-    # ------------------------------------------------------
-
     if login_clicked:
 
         email = email.strip().lower()
@@ -125,6 +116,7 @@ def check_login():
                 "view",
                 "financial"
             )
+
             st.rerun()
 
         else:
@@ -136,15 +128,15 @@ def check_login():
     return False
 
 
-# ----------------------------------------------------------
+# ==========================================================
 # REQUIRE LOGIN
-# ----------------------------------------------------------
+# ==========================================================
 
 if not check_login():
-
     st.stop()
-#############################################################################
 
+
+# ==========================================================
 # USER VIEW
 # ==========================================================
 
@@ -157,8 +149,6 @@ IS_FINANCIAL = USER_VIEW == "financial"
 IS_PERCENTAGE = USER_VIEW == "percentage"
 
 
-#############################################################################
-
 # ==========================================================
 # LOGOUT
 # ==========================================================
@@ -169,55 +159,93 @@ with st.sidebar:
         f"👤 {st.session_state.get('logged_in_email', '')}"
     )
 
-    if st.button("🚪 Logout", width="stretch"):
+    if st.button(
+        "🚪 Logout",
+        width="stretch"
+    ):
 
         st.session_state.authenticated = False
-        st.session_state.pop("logged_in_email", None)
+        st.session_state.pop(
+            "logged_in_email",
+            None
+        )
 
         st.rerun()
 
-#############################################################################
+
+# ==========================================================
+# TITLE
+# ==========================================================
+
+st.title(
+    "💰 FastRanking Payments Dashboard"
+)
 
 
+# ==========================================================
+# KPI STYLING
+# ==========================================================
+
+st.markdown(
+    """
+    <style>
+
+    .kpi-card{
+        background:#ffffff;
+        border:1px solid #e6e6e6;
+        border-radius:12px;
+        padding:14px;
+        text-align:center;
+        box-shadow:0 1px 6px rgba(0,0,0,0.08);
+        margin-bottom:10px;
+        min-height:118px;
+        box-sizing:border-box;
+        display:flex;
+        flex-direction:column;
+        justify-content:center;
+    }
+
+    .kpi-title{
+        font-size:15px;
+        color:#666666;
+        margin-bottom:6px;
+        font-weight:600;
+        line-height:1.2;
+    }
+
+    .kpi-value{
+        font-size:28px;
+        font-weight:700;
+        color:#111111;
+        line-height:1.1;
+    }
+
+    .kpi-percentage{
+        font-size:12px;
+        color:#888888;
+        font-weight:500;
+        margin-top:4px;
+        line-height:16px;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 
-
-st.title("💰 FastRanking Payments Dashboard")
-st.markdown("""
-<style>
-
-.kpi-card{
-    background:#ffffff;
-    border:1px solid #e6e6e6;
-    border-radius:12px;
-    padding:14px;
-    text-align:center;
-    box-shadow:0 1px 6px rgba(0,0,0,0.08);
-    margin-bottom:10px;
-}
-
-.kpi-title{
-    font-size:15px;
-    color:#666666;
-    margin-bottom:8px;
-    font-weight:600;
-}
-
-.kpi-value{
-    font-size:28px;
-    font-weight:700;
-    color:#111111;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-def kpi_card(title, value, percentage=None):
+def kpi_card(
+    title,
+    value,
+    percentage=None
+):
 
     if percentage is not None:
 
         percentage_html = (
-            f'<div class="kpi-percentage">{percentage:.1f}%</div>'
+            f'<div class="kpi-percentage">'
+            f'{percentage:.1f}%'
+            f'</div>'
         )
 
     else:
@@ -234,54 +262,16 @@ def kpi_card(title, value, percentage=None):
         """,
         unsafe_allow_html=True
     )
-st.markdown("""
-<style>
 
-.kpi-card{
-    background:#ffffff;
-    border:1px solid #e6e6e6;
-    border-radius:12px;
-    padding:14px;
-    text-align:center;
-    box-shadow:0 1px 6px rgba(0,0,0,0.08);
-    margin-bottom:10px;
-    min-height:118px;
-    box-sizing:border-box;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-}
 
-.kpi-title{
-    font-size:15px;
-    color:#666666;
-    margin-bottom:6px;
-    font-weight:600;
-    line-height:1.2;
-}
-
-.kpi-value{
-    font-size:28px;
-    font-weight:700;
-    color:#111111;
-    line-height:1.1;
-}
-
-.kpi-percentage{
-    font-size:12px;
-    color:#888888;
-    font-weight:500;
-    margin-top:4px;
-    line-height:16px;
-}
-
-</style>
-""", unsafe_allow_html=True)
-# ----------------------------------------------------------
+# ==========================================================
 # SERVICE CLASSIFICATION
-# ----------------------------------------------------------
+# ==========================================================
 
-def classify_service(item_name, item_desc):
+def classify_service(
+    item_name,
+    item_desc
+):
 
     item_name = (
         str(item_name).strip()
@@ -295,8 +285,11 @@ def classify_service(item_name, item_desc):
         else ""
     )
 
-    # Item Name takes priority
-    source = item_name if item_name else item_desc
+    source = (
+        item_name
+        if item_name
+        else item_desc
+    )
 
     source_clean = (
         source
@@ -323,7 +316,10 @@ def classify_service(item_name, item_desc):
         or "web" in source_clean
         or "amc" in source_clean
     ):
+
         return "Web Development", ""
+
+
     # ------------------------------------------------------
     # GOOGLE + META ADS
     # ------------------------------------------------------
@@ -336,14 +332,18 @@ def classify_service(item_name, item_desc):
             and "ads" in source_clean
         )
     ):
+
         return "SEO", "Google + Meta Ads"
+
 
     # ------------------------------------------------------
     # META ADS
     # ------------------------------------------------------
 
     if "meta ads" in source_clean:
+
         return "SEO", "Meta Ads"
+
 
     # ------------------------------------------------------
     # GOOGLE ADS
@@ -357,7 +357,9 @@ def classify_service(item_name, item_desc):
         or "ppc management" in source_clean
         or "management fee" in source_clean
     ):
+
         return "SEO", "Google Ads"
+
 
     # ------------------------------------------------------
     # GBPO
@@ -367,7 +369,9 @@ def classify_service(item_name, item_desc):
         "gbpo" in source_clean
         or "google business profile" in source_clean
     ):
+
         return "SEO", "GBPO"
+
 
     # ------------------------------------------------------
     # GMB
@@ -378,7 +382,9 @@ def classify_service(item_name, item_desc):
         or "(gmb)" in source_clean
         or source_clean == "gmb"
     ):
+
         return "SEO", "GMB"
+
 
     # ------------------------------------------------------
     # SMO
@@ -388,21 +394,27 @@ def classify_service(item_name, item_desc):
         "smo" in source_clean
         or "social media optimization" in source_clean
     ):
+
         return "SEO", "SMO"
+
 
     # ------------------------------------------------------
     # SEO
     # ------------------------------------------------------
 
     if "seo" in source_clean:
+
         return "SEO", "SEO"
 
-        # ------------------------------------------------------
+
+    # ------------------------------------------------------
     # EMAIL MARKETING
     # ------------------------------------------------------
 
     if "email marketing" in source_clean:
+
         return "SEO", "Email Marketing"
+
 
     # ------------------------------------------------------
     # OTHER
@@ -410,9 +422,10 @@ def classify_service(item_name, item_desc):
 
     return "Unclassified", ""
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # FILES
-# ----------------------------------------------------------
+# ==========================================================
 
 INVOICE_FILE = "Invoice_zoho.xlsx"
 PAYMENT_FILE = "Customer_Payment_zoho.xlsx"
@@ -420,41 +433,66 @@ AR_CURRENT_FILE = "AR_current_zoho.xlsx"
 AR_OVERDUE_FILE = "AR_overdue_zoho.xlsx"
 CONTACTS_FILE = "Contacts_zoho.xlsx"
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # LOAD DATA
-# ----------------------------------------------------------
+# ==========================================================
 
 @st.cache_data
 def load_data():
 
-    invoices = pd.read_excel(INVOICE_FILE)
-    payments = pd.read_excel(PAYMENT_FILE)
-    ar_current = pd.read_excel(AR_CURRENT_FILE)
-    ar_overdue = pd.read_excel(AR_OVERDUE_FILE)
+    invoices = pd.read_excel(
+        INVOICE_FILE
+    )
 
-    # ------------------------------
-    # Clean column names
-    # ------------------------------
+    payments = pd.read_excel(
+        PAYMENT_FILE
+    )
 
-    invoices.columns = invoices.columns.str.strip()
-    payments.columns = payments.columns.str.strip()
-    ar_current.columns = ar_current.columns.str.strip()
-    ar_overdue.columns = ar_overdue.columns.str.strip()
+    ar_current = pd.read_excel(
+        AR_CURRENT_FILE
+    )
 
+    ar_overdue = pd.read_excel(
+        AR_OVERDUE_FILE
+    )
 
-        
     # ------------------------------------------------------
+    # CLEAN COLUMN NAMES
+    # ------------------------------------------------------
+
+    invoices.columns = (
+        invoices.columns
+        .str.strip()
+    )
+
+    payments.columns = (
+        payments.columns
+        .str.strip()
+    )
+
+    ar_current.columns = (
+        ar_current.columns
+        .str.strip()
+    )
+
+    ar_overdue.columns = (
+        ar_overdue.columns
+        .str.strip()
+    )
+
+
+    # ======================================================
     # SERVICE CLASSIFICATION
-    # ------------------------------------------------------
-    
-    # Make sure the source columns exist
+    # ======================================================
+
     if "Item Name" not in invoices.columns:
         invoices["Item Name"] = ""
-    
+
     if "Item Desc" not in invoices.columns:
         invoices["Item Desc"] = ""
-    
-    # Classify each invoice
+
+
     service_classification = invoices.apply(
         lambda row: classify_service(
             row["Item Name"],
@@ -463,12 +501,12 @@ def load_data():
         axis=1,
         result_type="expand"
     )
-    
+
     service_classification.columns = [
         "Service Type",
         "Service Subcategory"
     ]
-    
+
     invoices = pd.concat(
         [
             invoices,
@@ -477,12 +515,10 @@ def load_data():
         axis=1
     )
 
-    
 
-
-    # ------------------------------
-    # Date columns
-    # ------------------------------
+    # ======================================================
+    # DATE COLUMNS
+    # ======================================================
 
     invoice_dates = [
         "Invoice Date",
@@ -492,30 +528,41 @@ def load_data():
     ]
 
     for col in invoice_dates:
+
         if col in invoices.columns:
+
             invoices[col] = pd.to_datetime(
                 invoices[col],
                 dayfirst=True,
                 errors="coerce"
             )
 
+
     if "Date" in payments.columns:
+
         payments["Date"] = pd.to_datetime(
             payments["Date"],
             dayfirst=True,
             errors="coerce"
         )
 
+
     if "Invoice Date" in payments.columns:
+
         payments["Invoice Date"] = pd.to_datetime(
             payments["Invoice Date"],
             dayfirst=True,
             errors="coerce"
         )
 
-    for df in [ar_current, ar_overdue]:
+
+    for df in [
+        ar_current,
+        ar_overdue
+    ]:
 
         if "date" in df.columns:
+
             df["date"] = pd.to_datetime(
                 df["date"],
                 dayfirst=True,
@@ -523,6 +570,7 @@ def load_data():
             )
 
         if "due_date" in df.columns:
+
             df["due_date"] = pd.to_datetime(
                 df["due_date"],
                 dayfirst=True,
@@ -530,11 +578,9 @@ def load_data():
             )
 
 
-
-
-    # ------------------------------
-    # Numeric columns
-    # ------------------------------
+    # ======================================================
+    # NUMERIC COLUMNS
+    # ======================================================
 
     invoice_numeric = [
         "Total",
@@ -543,11 +589,14 @@ def load_data():
     ]
 
     for col in invoice_numeric:
+
         if col in invoices.columns:
+
             invoices[col] = pd.to_numeric(
                 invoices[col],
                 errors="coerce"
             ).fillna(0)
+
 
     payment_numeric = [
         "Amount",
@@ -555,300 +604,339 @@ def load_data():
     ]
 
     for col in payment_numeric:
+
         if col in payments.columns:
+
             payments[col] = pd.to_numeric(
                 payments[col],
                 errors="coerce"
             ).fillna(0)
 
-    for df in [ar_current, ar_overdue]:
 
-        for col in ["balance", "amount"]:
+    for df in [
+        ar_current,
+        ar_overdue
+    ]:
+
+        for col in [
+            "balance",
+            "amount"
+        ]:
 
             if col in df.columns:
+
                 df[col] = pd.to_numeric(
                     df[col],
                     errors="coerce"
                 ).fillna(0)
 
 
-
-
-    # ------------------------------------------------------
-    # Remove Draft/Void invoices
-    # ------------------------------------------------------
+    # ======================================================
+    # REMOVE DRAFT / VOID INVOICES
+    # ======================================================
 
     invoices = invoices[
         ~invoices["Invoice Status"].isin(
-            ["Draft", "Void"]
+            [
+                "Draft",
+                "Void"
+            ]
         )
     ].copy()
 
-    # ------------------------------------------------------
-    # Month column
-    # ------------------------------------------------------
+
+    # ======================================================
+    # MONTH
+    # ======================================================
 
     invoices["Month"] = (
         invoices["Invoice Date"]
         .dt.to_period("M")
         .astype(str)
     )
-    
 
-# ------------------------------------------------------
-# REMOVE DUPLICATE INVOICES
-# ------------------------------------------------------
+
+    # ======================================================
+    # REMOVE DUPLICATE INVOICES
+    # ======================================================
 
     invoices = (
         invoices
         .sort_values("Invoice Date")
-        .drop_duplicates(subset="Invoice Number", keep="first")
+        .drop_duplicates(
+            subset="Invoice Number",
+            keep="first"
+        )
         .reset_index(drop=True)
     )
-    # ==========================================================
-    # INVOICE TYPE - NEW vs RECURRING
-    # ==========================================================
-    
-    # Find the customer's first-ever invoice date
+
+
+    # ======================================================
+    # CUSTOMER FIRST INVOICE
+    # ======================================================
+
     customer_first_invoice = (
         invoices
-        .groupby("Customer Name")["Invoice Date"]
+        .groupby("Customer Name")[
+            "Invoice Date"
+        ]
         .min()
     )
-    
-    # Add first-ever invoice date to every invoice
-    invoices["First Customer Invoice Date"] = (
+
+    invoices[
+        "First Customer Invoice Date"
+    ] = (
         invoices["Customer Name"]
         .map(customer_first_invoice)
     )
 
-    # ----------------------------------------------------------
-    # CLASSIFY EACH INVOICE
-    # ----------------------------------------------------------
-    
+
+    # ======================================================
+    # INVOICE TYPE
+    # ======================================================
+
     invoices["Invoice Type"] = np.where(
         invoices["Invoice Date"]
-        == invoices["First Customer Invoice Date"],
+        ==
+        invoices["First Customer Invoice Date"],
         "New Customer",
         "Recurring Customer"
     )
 
 
-
-
-
-
-    # ------------------------------------------------------
+    # ======================================================
     # ENTITY ID CHECK
-    # ------------------------------------------------------
-    
+    # ======================================================
+
     if "entity_id" in invoices.columns:
-    
+
         print(
             "entity_id found in Invoice file."
         )
-    
+
         print(
             f"Unique entity_id values: "
             f"{invoices['entity_id'].nunique():,}"
         )
-    
+
         print(
             f"Duplicate entity_id values: "
             f"{invoices['entity_id'].duplicated().sum():,}"
         )
-    
+
     else:
-    
+
         print(
             "entity_id NOT found in Invoice file."
         )
 
 
-
-
-    
-    # ------------------------------------------------------
+    # ======================================================
     # PAYMENT SUMMARY
-    # ------------------------------------------------------
-    
+    # ======================================================
+
     payment_summary = (
-        payments.groupby("Invoice Number", as_index=False)
+        payments
+        .groupby(
+            "Invoice Number",
+            as_index=False
+        )
         .agg(
-            Paid=("Amount Applied to Invoice", "sum")
+            Paid=(
+                "Amount Applied to Invoice",
+                "sum"
+            )
         )
     )
-    
+
     invoices = invoices.merge(
         payment_summary,
         on="Invoice Number",
         how="left"
     )
-    
-    invoices["Paid"] = invoices["Paid"].fillna(0)
-        # ------------------------------------------------------
+
+    invoices["Paid"] = (
+        invoices["Paid"]
+        .fillna(0)
+    )
+
+
+    # ======================================================
     # AUTHORITATIVE OUTSTANDING BALANCE
-    # ------------------------------------------------------
-    #
-    # The Invoice + Payment data is the dashboard source
-    # of truth.
-    #
-    # Outstanding = Invoice Total - Payments Applied
-    #
-    # This is calculated AFTER invoice deduplication.
-    # ------------------------------------------------------
-    
+    # ======================================================
+
     invoices["Calculated Outstanding"] = (
         invoices["Total"]
         - invoices["Paid"]
     ).clip(lower=0)
-    
-    # Dashboard outstanding is ALWAYS payment-derived
+
     invoices["Outstanding"] = (
         invoices["Calculated Outstanding"]
     )
 
-    # ==========================================================
+
+    # ======================================================
     # CUSTOMER CLASSIFICATION
-    # ==========================================================
-    
-    # First-ever invoice date for each customer
+    # ======================================================
+
     customer_first_invoice = (
         invoices
-        .groupby("Customer Name")["Invoice Date"]
+        .groupby("Customer Name")[
+            "Invoice Date"
+        ]
         .min()
     )
-    
-    invoices["First Customer Invoice Date"] = (
+
+    invoices[
+        "First Customer Invoice Date"
+    ] = (
         invoices["Customer Name"]
         .map(customer_first_invoice)
     )
-    
-    # ----------------------------------------------------------
-    # NEW vs RECURRING
-    # ----------------------------------------------------------
-    
+
     invoices["Customer Type"] = np.where(
         invoices["Invoice Date"]
-        == invoices["First Customer Invoice Date"],
+        ==
+        invoices["First Customer Invoice Date"],
         "New Customer",
         "Recurring Customer"
     )
 
 
-    
-    # ------------------------------------------------------
+    # ======================================================
     # ZOHO BALANCE RECONCILIATION
-    # ------------------------------------------------------
-    
+    # ======================================================
+
     invoices["Balance Difference"] = (
         invoices["Calculated Outstanding"]
         - invoices["Balance"]
     )
-    
+
     invoices["Balance Reconciles"] = (
-        invoices["Balance Difference"].abs() <= 0.01
+        invoices["Balance Difference"]
+        .abs()
+        <= 0.01
     )
-      
-    # ------------------------------------------------------
+
+
+    # ======================================================
     # CALCULATED OUTSTANDING
-    # ------------------------------------------------------
-    
+    # ======================================================
+
     invoices["Calculated Outstanding"] = (
         invoices["Total"]
         - invoices["Paid"]
     )
-    
-    # Prevent negative balances
+
     invoices["Calculated Outstanding"] = (
         invoices["Calculated Outstanding"]
         .clip(lower=0)
     )
-        # ------------------------------------------------------
+
+
+    # ======================================================
     # INVOICE RECONCILIATION
-    # ------------------------------------------------------
-    
-    invoice_total_check = invoices["Total"].sum()
-    invoice_paid_check = invoices["Paid"].sum()
+    # ======================================================
+
+    invoice_total_check = (
+        invoices["Total"].sum()
+    )
+
+    invoice_paid_check = (
+        invoices["Paid"].sum()
+    )
+
     invoice_outstanding_check = (
         invoices["Calculated Outstanding"].sum()
     )
-    
+
     reconciliation_difference = (
         invoice_total_check
         - invoice_paid_check
         - invoice_outstanding_check
     )
-    
+
     print(
-        f"Invoice Total       : £{invoice_total_check:,.2f}"
-    )
-    
-    print(
-        f"Payments Applied    : £{invoice_paid_check:,.2f}"
-    )
-    
-    print(
-        f"Calculated Pending  : £{invoice_outstanding_check:,.2f}"
-    )
-    
-    print(
-        f"Reconciliation Diff : £{reconciliation_difference:,.2f}"
+        f"Invoice Total       : "
+        f"£{invoice_total_check:,.2f}"
     )
 
-  # ==========================================================
+    print(
+        f"Payments Applied    : "
+        f"£{invoice_paid_check:,.2f}"
+    )
+
+    print(
+        f"Calculated Pending  : "
+        f"£{invoice_outstanding_check:,.2f}"
+    )
+
+    print(
+        f"Reconciliation Diff : "
+        f"£{reconciliation_difference:,.2f}"
+    )
+
+
+    # ======================================================
     # INVOICE / PAYMENT / ZOHO BALANCE RECONCILIATION
-    # ==========================================================
-    
+    # ======================================================
+
     reconciliation_issues = invoices[
-        invoices["Balance Difference"].abs() > 0.01
+        invoices["Balance Difference"]
+        .abs() > 0.01
     ].copy()
-    
+
     print("=" * 70)
-    print("INVOICE / PAYMENT / BALANCE RECONCILIATION")
+    print(
+        "INVOICE / PAYMENT / BALANCE RECONCILIATION"
+    )
     print("=" * 70)
-    
+
     print(
-        f"Unique invoices     : {invoices['Invoice Number'].nunique():,}"
+        f"Unique invoices     : "
+        f"{invoices['Invoice Number'].nunique():,}"
     )
-    
+
     print(
-        f"Invoice Total       : £{invoices['Total'].sum():,.2f}"
+        f"Invoice Total       : "
+        f"£{invoices['Total'].sum():,.2f}"
     )
-    
+
     print(
-        f"Payments Matched    : £{invoices['Paid'].sum():,.2f}"
+        f"Payments Matched    : "
+        f"£{invoices['Paid'].sum():,.2f}"
     )
-    
+
     print(
-        f"Calculated Pending  : £{invoices['Calculated Outstanding'].sum():,.2f}"
+        f"Calculated Pending  : "
+        f"£{invoices['Calculated Outstanding'].sum():,.2f}"
     )
-    
+
     print(
-        f"Zoho Invoice Balance: £{invoices['Balance'].sum():,.2f}"
+        f"Zoho Invoice Balance: "
+        f"£{invoices['Balance'].sum():,.2f}"
     )
-    
+
     print(
         f"Balance Difference  : "
         f"£{invoices['Balance Difference'].sum():,.2f}"
     )
-    
+
     print(
         f"Mismatch invoices   : "
         f"{len(reconciliation_issues):,}"
     )
-    
+
     print("=" * 70)
-    # ==========================================================
+
+
+    # ======================================================
     # AR FILE RECONCILIATION
-    #
-    # AR files are reference data only.
-    # They DO NOT determine dashboard KPIs.
-    # ==========================================================
-    
+    # ======================================================
+
     ar_current["AR Source"] = "Future Due"
     ar_overdue["AR Source"] = "Overdue"
-    
+
     ar_reference = pd.concat(
         [
             ar_current,
@@ -856,27 +944,27 @@ def load_data():
         ],
         ignore_index=True
     )
-    
-    # Clean invoice numbers
+
+
     if "invoice_number" in ar_reference.columns:
-    
+
         ar_reference["Invoice Number"] = (
             ar_reference["invoice_number"]
             .astype(str)
             .str.strip()
         )
-    
+
     elif "Invoice Number" not in ar_reference.columns:
-    
+
         ar_reference["Invoice Number"] = ""
-    
-    
-    # ----------------------------------------------------------
+
+
+    # ======================================================
     # AR BALANCE
-    # ----------------------------------------------------------
-    
+    # ======================================================
+
     if "balance" in ar_reference.columns:
-    
+
         ar_reference["AR Balance"] = (
             pd.to_numeric(
                 ar_reference["balance"],
@@ -884,16 +972,16 @@ def load_data():
             )
             .fillna(0)
         )
-    
+
     else:
-    
+
         ar_reference["AR Balance"] = 0
-    
-    
-    # ----------------------------------------------------------
-    # REMOVE DUPLICATE AR INVOICE NUMBERS
-    # ----------------------------------------------------------
-    
+
+
+    # ======================================================
+    # REMOVE DUPLICATE AR INVOICES
+    # ======================================================
+
     ar_reference = (
         ar_reference
         .drop_duplicates(
@@ -902,10 +990,12 @@ def load_data():
         )
         .reset_index(drop=True)
     )
-    # ==========================================================
-    # MATCH AR FILES AGAINST DEDUPLICATED INVOICE DATA
-    # ==========================================================
-    
+
+
+    # ======================================================
+    # MATCH AR AGAINST INVOICES
+    # ======================================================
+
     invoice_reference = invoices[
         [
             "Invoice Number",
@@ -913,63 +1003,76 @@ def load_data():
             "Due Date"
         ]
     ].copy()
-    
+
     invoice_reference["Invoice Number"] = (
         invoice_reference["Invoice Number"]
         .astype(str)
         .str.strip()
     )
-    
-    invoice_reference = invoice_reference.rename(
-        columns={
-            "Outstanding": "Invoice Outstanding"
-        }
+
+    invoice_reference = (
+        invoice_reference
+        .rename(
+            columns={
+                "Outstanding":
+                    "Invoice Outstanding"
+            }
+        )
     )
-    
-    ar_reconciliation = ar_reference.merge(
-        invoice_reference,
-        on="Invoice Number",
-        how="outer",
-        indicator=True
+
+    ar_reconciliation = (
+        ar_reference
+        .merge(
+            invoice_reference,
+            on="Invoice Number",
+            how="outer",
+            indicator=True
+        )
     )
-    
-    ar_reconciliation["Invoice Outstanding"] = (
-        ar_reconciliation["Invoice Outstanding"]
+
+    ar_reconciliation[
+        "Invoice Outstanding"
+    ] = (
+        ar_reconciliation[
+            "Invoice Outstanding"
+        ]
         .fillna(0)
     )
-    
+
     ar_reconciliation["AR Balance"] = (
         ar_reconciliation["AR Balance"]
         .fillna(0)
     )
-    
+
     ar_reconciliation["Difference"] = (
         ar_reconciliation["Invoice Outstanding"]
         - ar_reconciliation["AR Balance"]
     )
 
 
-    # ==========================================================
+    # ======================================================
     # AR MISMATCHES
-    # ==========================================================
-    
+    # ======================================================
+
     ar_mismatches = ar_reconciliation[
         (
-            ar_reconciliation["Difference"].abs() > 0.01
+            ar_reconciliation["Difference"]
+            .abs() > 0.01
         )
         |
         (
-            ar_reconciliation["_merge"] != "both"
+            ar_reconciliation["_merge"]
+            != "both"
         )
     ].copy()
-    
+
     print(
         f"AR reconciliation mismatches: "
         f"{len(ar_mismatches):,}"
     )
-    
+
     if not ar_mismatches.empty:
-    
+
         print(
             ar_mismatches[
                 [
@@ -983,55 +1086,97 @@ def load_data():
         )
 
 
-
-
-
-    # ------------------------------------------------------
+    # ======================================================
     # CUSTOMER SUMMARY
-    # ------------------------------------------------------
+    # ======================================================
 
     customer_summary = (
-        invoices.groupby("Customer Name", as_index=False)
+        invoices
+        .groupby(
+            "Customer Name",
+            as_index=False
+        )
         .agg(
-            Total_Invoiced=("Total", "sum"),
-            Outstanding=("Calculated Outstanding", "sum"),
-            Invoice_Count=("Invoice Number", "nunique")
+            Total_Invoiced=(
+                "Total",
+                "sum"
+            ),
+            Outstanding=(
+                "Calculated Outstanding",
+                "sum"
+            ),
+            Invoice_Count=(
+                "Invoice Number",
+                "nunique"
+            )
         )
     )
 
-    # ------------------------------------------------------
+
+    # ======================================================
     # MONTHLY SUMMARY
-    # ------------------------------------------------------
+    # ======================================================
 
     monthly_summary = (
-        invoices.groupby("Month", as_index=False)
+        invoices
+        .groupby(
+            "Month",
+            as_index=False
+        )
         .agg(
-            Customers=("Customer Name", "nunique"),
-            Invoices=("Invoice Number", "nunique"),
-            Total_Invoiced=("Total", "sum"),
-            Outstanding=("Calculated Outstanding", "sum")
+            Customers=(
+                "Customer Name",
+                "nunique"
+            ),
+            Invoices=(
+                "Invoice Number",
+                "nunique"
+            ),
+            Total_Invoiced=(
+                "Total",
+                "sum"
+            ),
+            Outstanding=(
+                "Calculated Outstanding",
+                "sum"
+            )
         )
         .sort_values("Month")
     )
 
-    # ------------------------------------------------------
+
+    # ======================================================
     # KPI VALUES
-    # ------------------------------------------------------
+    # ======================================================
 
-    total_customers = invoices["Customer Name"].nunique()
+    total_customers = (
+        invoices["Customer Name"]
+        .nunique()
+    )
 
-    total_invoiced = invoices["Total"].sum()
+    total_invoiced = (
+        invoices["Total"].sum()
+    )
+
     total_pending = (
         invoices["Outstanding"].sum()
     )
 
 
+    # ======================================================
+    # CONTACTS
+    # ======================================================
 
-    contacts = pd.read_excel(CONTACTS_FILE)
-    contacts.columns = contacts.columns.str.strip()
-  
+    contacts = pd.read_excel(
+        CONTACTS_FILE
+    )
 
-    
+    contacts.columns = (
+        contacts.columns
+        .str.strip()
+    )
+
+
     return (
         invoices,
         payments,
@@ -1047,6 +1192,10 @@ def load_data():
         contacts
     )
 
+
+# ==========================================================
+# LOAD EVERYTHING
+# ==========================================================
 
 (
     invoices,
@@ -1065,28 +1214,34 @@ def load_data():
 
 
 # ==========================================================
-# PART 2 - KPI DASHBOARD & CUSTOMER TABLE
-# ==========================================================
-# ==========================================================
-# PART 2 - FILTERS
+# PART 2
+# MAIN DASHBOARD FILTERS
 # ==========================================================
 
 st.subheader("Filters")
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # DATE FILTERS
-# ----------------------------------------------------------
+# ==========================================================
 
 f1, f2, f3, f4, f5 = st.columns(5)
 
-from datetime import date
+min_date = date(
+    2021,
+    1,
+    1
+)
 
-# Fixed selectable range
-min_date = date(2021, 1, 1)
-max_date = date(2027, 12, 31)
+max_date = date(
+    2027,
+    12,
+    31
+)
 
-# Default dates = current calendar year
-current_year = pd.Timestamp.today().year
+current_year = (
+    pd.Timestamp.today().year
+)
 
 default_start = date(
     current_year,
@@ -1099,6 +1254,8 @@ default_end = date(
     12,
     31
 )
+
+
 with f1:
 
     start_date = st.date_input(
@@ -1107,6 +1264,7 @@ with f1:
         min_value=min_date,
         max_value=max_date
     )
+
 
 with f2:
 
@@ -1117,9 +1275,10 @@ with f2:
         max_value=max_date
     )
 
-# ----------------------------------------------------------
-# SERVICE CATEGORY FILTER
-# ----------------------------------------------------------
+
+# ==========================================================
+# SERVICE FILTER
+# ==========================================================
 
 with f3:
 
@@ -1135,9 +1294,10 @@ with f3:
         service_options
     )
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # INVOICE TYPE FILTER
-# ----------------------------------------------------------
+# ==========================================================
 
 with f4:
 
@@ -1153,9 +1313,10 @@ with f4:
         key="main_invoice_type"
     )
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # CUSTOMER STATUS FILTER
-# ----------------------------------------------------------
+# ==========================================================
 
 with f5:
 
@@ -1170,27 +1331,40 @@ with f5:
         customer_status_options,
         key="main_customer_status"
     )
+
+
 # ==========================================================
-# APPLY FILTERS
+# APPLY MAIN FILTERS
 # ==========================================================
 
 display_df = invoices[
-    (invoices["Invoice Date"] >= pd.Timestamp(start_date)) &
-    (invoices["Invoice Date"] <= pd.Timestamp(end_date))
+    (
+        invoices["Invoice Date"]
+        >= pd.Timestamp(start_date)
+    )
+    &
+    (
+        invoices["Invoice Date"]
+        <= pd.Timestamp(end_date)
+    )
 ].copy()
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # SERVICE FILTER
-# ----------------------------------------------------------
+# ==========================================================
 
 if selected_service != "All Services":
 
     display_df = display_df[
-        display_df["Service Type"] == selected_service
+        display_df["Service Type"]
+        == selected_service
     ].copy()
-# ----------------------------------------------------------
+
+
+# ==========================================================
 # INVOICE TYPE FILTER
-# ----------------------------------------------------------
+# ==========================================================
 
 if selected_invoice_type != "All Invoices":
 
@@ -1198,9 +1372,11 @@ if selected_invoice_type != "All Invoices":
         display_df["Invoice Type"]
         == selected_invoice_type
     ].copy()
-# ----------------------------------------------------------
+
+
+# ==========================================================
 # CUSTOMER STATUS FILTER
-# ----------------------------------------------------------
+# ==========================================================
 
 if selected_customer_status != "All Customers":
 
@@ -1223,101 +1399,97 @@ if selected_customer_status != "All Customers":
         .isin(selected_status_customers)
     ].copy()
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # RECALCULATE KPIs
-# ----------------------------------------------------------
+# ==========================================================
 
-total_customers = display_df["Customer Name"].nunique()
+total_customers = (
+    display_df["Customer Name"]
+    .nunique()
+)
 
-total_invoices = display_df["Invoice Number"].nunique()
+total_invoices = (
+    display_df["Invoice Number"]
+    .nunique()
+)
 
-total_invoiced = display_df["Total"].sum()
+total_invoiced = (
+    display_df["Total"].sum()
+)
 
-total_paid = display_df["Paid"].sum()
+total_paid = (
+    display_df["Paid"].sum()
+)
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # COLLECTION RATE
-# ----------------------------------------------------------
+# ==========================================================
 
 collection_rate = (
     (total_paid / total_invoiced) * 100
     if total_invoiced > 0
     else 0
 )
-# ----------------------------------------------------------
-# AR CALCULATIONS FROM DEDUPLICATED INVOICE DATA
-# ----------------------------------------------------------
 
-today = pd.Timestamp.today().normalize()
 
 # ==========================================================
-# IMPORTANT:
-# display_df comes from "invoices", which has already had
-# duplicate Invoice Numbers removed in load_data().
-#
-# Therefore ALL AR calculations below are based on the
-# deduplicated invoice population.
+# AR CALCULATIONS
 # ==========================================================
+
+today = (
+    pd.Timestamp.today()
+    .normalize()
+)
 
 
 # ==========================================================
 # OVERDUE
-#
-# Anything due today or earlier and still unpaid.
 # ==========================================================
 
 overdue_df = display_df[
-    (display_df["Outstanding"] > 0) &
+    (display_df["Outstanding"] > 0)
+    &
     (display_df["Due Date"] <= today)
 ].copy()
 
-overdue_due = overdue_df["Outstanding"].sum()
+overdue_due = (
+    overdue_df["Outstanding"].sum()
+)
 
 
 # ==========================================================
 # FUTURE DUE
-#
-# Anything not yet due and still unpaid.
 # ==========================================================
 
 future_df = display_df[
-    (display_df["Outstanding"] > 0) &
+    (display_df["Outstanding"] > 0)
+    &
     (display_df["Due Date"] > today)
 ].copy()
 
-future_due = future_df["Outstanding"].sum()
+future_due = (
+    future_df["Outstanding"].sum()
+)
 
 
 # ==========================================================
 # TOTAL PENDING
-#
-# Because every unpaid invoice is either:
-#
-#   1. Overdue
-#   2. Future Due
-#
-# Pending is simply the sum of the two.
 # ==========================================================
 
 total_pending = (
     overdue_due
     + future_due
 )
+
+
 # ==========================================================
 # PENDING RECONCILIATION
 # ==========================================================
-#
-# Pending is entirely invoice/payment based.
-#
-# Invoice Balance = Total - Paid
-#
-# AR files are NOT used to calculate Pending.
-# They are only used for reconciliation.
-# ==========================================================
 
 invoice_balance = (
-    display_df["Outstanding"]
-    .sum()
+    display_df["Outstanding"].sum()
 )
 
 calculated_pending = (
@@ -1331,28 +1503,15 @@ difference = (
 )
 
 
-
-
 # ==========================================================
-# TOTAL PENDING
-#
-# Pending = Overdue + Future Due
+# UNCLASSIFIED SERVICES
 # ==========================================================
-
-total_pending = (
-    overdue_due
-    + future_due
-)
-
-# Keep this variable for the percentage KPI
-overdue_total = overdue_due
-# ----------------------------------------------------------
-# SHOW UNCLASSIFIED SERVICES
-# ----------------------------------------------------------
 
 if selected_service == "Unclassified":
 
-    st.subheader("Unclassified Invoices")
+    st.subheader(
+        "Unclassified Invoices"
+    )
 
     st.dataframe(
         display_df[
@@ -1396,33 +1555,42 @@ overdue_percentage = (
     if total_invoiced > 0
     else 0
 )
+
+
 # ==========================================================
 # KPI CARDS
 # ==========================================================
 
-c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+c1, c2, c3, c4, c5, c6, c7 = (
+    st.columns(7)
+)
+
 
 if IS_FINANCIAL:
 
     with c1:
+
         kpi_card(
             "👥 Customers",
             f"{total_customers:,}"
         )
 
     with c2:
+
         kpi_card(
             "📄 Invoices",
             f"{total_invoices:,}"
         )
 
     with c3:
+
         kpi_card(
             "💷 Invoiced",
             f"£{total_invoiced:,.2f}"
         )
 
     with c4:
+
         kpi_card(
             "✅ Paid",
             f"£{total_paid:,.2f}",
@@ -1430,6 +1598,7 @@ if IS_FINANCIAL:
         )
 
     with c5:
+
         kpi_card(
             "⏳ Pending",
             f"£{total_pending:,.2f}",
@@ -1437,6 +1606,7 @@ if IS_FINANCIAL:
         )
 
     with c6:
+
         kpi_card(
             "📅 Future Due",
             f"£{future_due:,.2f}",
@@ -1444,110 +1614,86 @@ if IS_FINANCIAL:
         )
 
     with c7:
+
         kpi_card(
             "🔴 Overdue",
             f"£{overdue_due:,.2f}",
             overdue_percentage
         )
-        
+
+
 else:
 
-    # ======================================================
-    # PERCENTAGE VIEW
-    # ======================================================
-    
-    # ------------------------------------------------------
-    # PAID %
-    # ------------------------------------------------------
-    
-    paid_percentage = (
-        (total_paid / total_invoiced) * 100
-        if total_invoiced > 0 else 0
-    )
-    
-    
-    # ------------------------------------------------------
-    # OUTSTANDING / PENDING %
-    # ------------------------------------------------------
-    
     outstanding_percentage = (
         (total_pending / total_invoiced) * 100
-        if total_invoiced > 0 else 0
+        if total_invoiced > 0
+        else 0
     )
-    
-    # ------------------------------------------------------
-    # FUTURE DUE %
-    # ------------------------------------------------------
-    
+
     future_percentage = (
         (future_due / total_invoiced) * 100
-        if total_invoiced > 0 else 0
+        if total_invoiced > 0
+        else 0
     )
-    
-    
-    # ------------------------------------------------------
-    # OVERDUE %
-    # ------------------------------------------------------
-    
+
     overdue_percentage = (
-        (overdue_total / total_invoiced) * 100
-        if total_invoiced > 0 else 0
+        (overdue_due / total_invoiced) * 100
+        if total_invoiced > 0
+        else 0
     )
-    
-    
-    # ======================================================
-    # KPI CARDS
-    # ======================================================
-    
+
     with c1:
+
         kpi_card(
             "👥 Customers",
             f"{total_customers:,}"
         )
-    
+
     with c2:
+
         kpi_card(
             "📄 Invoices",
             f"{total_invoices:,}"
         )
-    
+
     with c3:
+
         kpi_card(
             "✅ Paid",
             f"{paid_percentage:.1f}%"
         )
-    
+
     with c4:
+
         kpi_card(
             "⏳ Outstanding",
             f"{outstanding_percentage:.1f}%"
         )
-    
+
     with c5:
+
         kpi_card(
             "⏳ Pending",
             f"{outstanding_percentage:.1f}%"
         )
-    
+
     with c6:
+
         kpi_card(
             "📅 Future Due",
             f"{future_percentage:.1f}%"
         )
-    
+
     with c7:
+
         kpi_card(
             "🔴 Overdue",
             f"{overdue_percentage:.1f}%"
         )
+
+
 # ==========================================================
-# HIDDEN AR RECONCILIATION
-#
-# Filter the global AR mismatch list against the
-# currently selected invoice population.
-#
-# This is deliberately independent of the normal
-# Pending reconciliation calculation.
+# AR RECONCILIATION
 # ==========================================================
 
 filtered_invoice_numbers = set(
@@ -1563,11 +1709,6 @@ filtered_ar_mismatches = ar_mismatches[
     .isin(filtered_invoice_numbers)
 ].copy()
 
-
-
-# ==========================================================
-# HIDDEN AR RECONCILIATION
-# ==========================================================
 
 with st.expander(
     "🔧 Reconciliation",
@@ -1613,34 +1754,47 @@ with st.expander(
             "✅ Invoice/Payment data reconciles with AR files."
         )
 
-# ----------------------------------------------------------
-# MONTHLY BREAKDOWN
-# ----------------------------------------------------------
-
-st.subheader("Monthly Invoice Summary")
 
 # ==========================================================
 # MONTHLY INVOICE SUMMARY
 # ==========================================================
 
+st.subheader(
+    "Monthly Invoice Summary"
+)
+
 monthly_invoice_summary = (
     display_df
-    .groupby("Month", as_index=False)
+    .groupby(
+        "Month",
+        as_index=False
+    )
     .agg(
-        Customers=("Customer Name", "nunique"),
-        Invoices=("Invoice Number", "nunique"),
-        Total_Invoiced=("Total", "sum"),
-        Outstanding=("Calculated Outstanding", "sum")
+        Customers=(
+            "Customer Name",
+            "nunique"
+        ),
+        Invoices=(
+            "Invoice Number",
+            "nunique"
+        ),
+        Total_Invoiced=(
+            "Total",
+            "sum"
+        ),
+        Outstanding=(
+            "Calculated Outstanding",
+            "sum"
+        )
     )
     .sort_values("Month")
     .reset_index(drop=True)
 )
+
+
 # ==========================================================
 # PAYMENT MONTH ANALYSIS
 # ==========================================================
-
-# Only payments belonging to invoices currently visible
-# in the main dashboard filters are included.
 
 filtered_invoice_numbers = set(
     display_df["Invoice Number"]
@@ -1660,9 +1814,6 @@ monthly_payments = payments[
 # ATTACH ORIGINAL INVOICE DATE
 # ==========================================================
 
-# Use a differently named column so we do not collide with
-# any Invoice Date column already present in the payment file.
-
 invoice_dates_lookup = invoices[
     [
         "Invoice Number",
@@ -1676,10 +1827,14 @@ invoice_dates_lookup["Invoice Number"] = (
     .str.strip()
 )
 
-invoice_dates_lookup = invoice_dates_lookup.rename(
-    columns={
-        "Invoice Date": "Original Invoice Date"
-    }
+invoice_dates_lookup = (
+    invoice_dates_lookup
+    .rename(
+        columns={
+            "Invoice Date":
+                "Original Invoice Date"
+        }
+    )
 )
 
 monthly_payments["Invoice Number"] = (
@@ -1718,7 +1873,7 @@ monthly_payments["Invoice Month"] = (
 
 
 # ==========================================================
-# CURRENT MONTH vs OLDER INVOICE
+# PAYMENT TYPE
 # ==========================================================
 
 monthly_payments["Payment Type"] = np.where(
@@ -1728,6 +1883,7 @@ monthly_payments["Payment Type"] = np.where(
     "Current Invoice",
     "Older Invoice"
 )
+
 
 # ==========================================================
 # MONTHLY PAYMENT TOTALS
@@ -1750,9 +1906,10 @@ monthly_payment_summary = (
     )
 )
 
-# ----------------------------------------------------------
-# Pivot Current vs Older payments
-# ----------------------------------------------------------
+
+# ==========================================================
+# PIVOT CURRENT VS OLDER
+# ==========================================================
 
 monthly_payment_summary = (
     monthly_payment_summary
@@ -1765,62 +1922,66 @@ monthly_payment_summary = (
     .reset_index()
 )
 
-# ----------------------------------------------------------
-# Make sure both columns always exist
-# ----------------------------------------------------------
 
 if "Current Invoice" not in monthly_payment_summary.columns:
 
-    monthly_payment_summary["Current Invoice"] = 0
+    monthly_payment_summary[
+        "Current Invoice"
+    ] = 0
+
 
 if "Older Invoice" not in monthly_payment_summary.columns:
 
-    monthly_payment_summary["Older Invoice"] = 0
+    monthly_payment_summary[
+        "Older Invoice"
+    ] = 0
 
-# ----------------------------------------------------------
-# Rename
-# ----------------------------------------------------------
 
 monthly_payment_summary = (
     monthly_payment_summary
     .rename(
         columns={
             "Payment Month": "Month",
-            "Current Invoice": "Paid_Current_Month",
-            "Older Invoice": "Paid_Older_Invoices"
+            "Current Invoice":
+                "Paid_Current_Month",
+            "Older Invoice":
+                "Paid_Older_Invoices"
         }
     )
 )
 
-# ----------------------------------------------------------
-# Total Paid
-# ----------------------------------------------------------
 
 monthly_payment_summary["Total_Paid"] = (
-    monthly_payment_summary["Paid_Current_Month"]
-    +
-    monthly_payment_summary["Paid_Older_Invoices"]
-)
-# ==========================================================
-# COMBINE MONTHLY INVOICE + PAYMENT DATA
-# ==========================================================
-
-monthly_display = monthly_invoice_summary.merge(
     monthly_payment_summary[
-        [
-            "Month",
-            "Paid_Current_Month",
-            "Paid_Older_Invoices",
-            "Total_Paid"
-        ]
-    ],
-    on="Month",
-    how="outer"
+        "Paid_Current_Month"
+    ]
+    +
+    monthly_payment_summary[
+        "Paid_Older_Invoices"
+    ]
 )
 
-# ----------------------------------------------------------
-# Fill months with no payments
-# ----------------------------------------------------------
+
+# ==========================================================
+# COMBINE MONTHLY DATA
+# ==========================================================
+
+monthly_display = (
+    monthly_invoice_summary
+    .merge(
+        monthly_payment_summary[
+            [
+                "Month",
+                "Paid_Current_Month",
+                "Paid_Older_Invoices",
+                "Total_Paid"
+            ]
+        ],
+        on="Month",
+        how="outer"
+    )
+)
+
 
 for col in [
     "Paid_Current_Month",
@@ -1833,9 +1994,6 @@ for col in [
         .fillna(0)
     )
 
-# ----------------------------------------------------------
-# Fill months with no invoices
-# ----------------------------------------------------------
 
 for col in [
     "Customers",
@@ -1849,9 +2007,6 @@ for col in [
         .fillna(0)
     )
 
-# ----------------------------------------------------------
-# Sort
-# ----------------------------------------------------------
 
 monthly_display = (
     monthly_display
@@ -1859,34 +2014,51 @@ monthly_display = (
     .reset_index(drop=True)
 )
 
+
 # ==========================================================
-# FINANCIAL VIEW
+# FINANCIAL MONTHLY VIEW
 # ==========================================================
 
 if IS_FINANCIAL:
 
-    # ------------------------------------------------------
-    # TOTAL ROW
-    # ------------------------------------------------------
+    monthly_total_row = pd.DataFrame([
+        {
+            "Month": "TOTAL",
 
-    monthly_total_row = pd.DataFrame([{
-        "Month": "TOTAL",
-        "Customers": display_df["Customer Name"].nunique(),
-        "Invoices": display_df["Invoice Number"].nunique(),
-        "Total_Invoiced": display_df["Total"].sum(),
-        "Paid_Current_Month": monthly_display[
-            "Paid_Current_Month"
-        ].sum(),
-        "Paid_Older_Invoices": monthly_display[
-            "Paid_Older_Invoices"
-        ].sum(),
-        "Total_Paid": monthly_display[
-            "Total_Paid"
-        ].sum(),
-        "Outstanding": display_df[
-            "Calculated Outstanding"
-        ].sum()
-    }])
+            "Customers":
+                display_df[
+                    "Customer Name"
+                ].nunique(),
+
+            "Invoices":
+                display_df[
+                    "Invoice Number"
+                ].nunique(),
+
+            "Total_Invoiced":
+                display_df["Total"].sum(),
+
+            "Paid_Current_Month":
+                monthly_display[
+                    "Paid_Current_Month"
+                ].sum(),
+
+            "Paid_Older_Invoices":
+                monthly_display[
+                    "Paid_Older_Invoices"
+                ].sum(),
+
+            "Total_Paid":
+                monthly_display[
+                    "Total_Paid"
+                ].sum(),
+
+            "Outstanding":
+                display_df[
+                    "Calculated Outstanding"
+                ].sum()
+        }
+    ])
 
     monthly_display = pd.concat(
         [
@@ -1896,9 +2068,6 @@ if IS_FINANCIAL:
         ignore_index=True
     )
 
-    # ------------------------------------------------------
-    # FORMAT FINANCIAL VALUES
-    # ------------------------------------------------------
 
     for col in [
         "Total_Invoiced",
@@ -1911,27 +2080,34 @@ if IS_FINANCIAL:
         monthly_display[col] = (
             monthly_display[col]
             .apply(
-                lambda x: f"£{x:,.2f}"
+                lambda x:
+                    f"£{x:,.2f}"
             )
         )
 
-    # ------------------------------------------------------
-    # RENAME COLUMNS
-    # ------------------------------------------------------
 
-    monthly_display = monthly_display.rename(
-        columns={
-            "Total_Invoiced": "Invoiced",
-            "Paid_Current_Month":
-                "Paid – Current Invoice Month",
-            "Paid_Older_Invoices":
-                "Paid – Older Invoices",
-            "Total_Paid":
-                "Total Paid",
-            "Outstanding":
-                "Outstanding"
-        }
+    monthly_display = (
+        monthly_display
+        .rename(
+            columns={
+                "Total_Invoiced":
+                    "Invoiced",
+
+                "Paid_Current_Month":
+                    "Paid – Current Invoice Month",
+
+                "Paid_Older_Invoices":
+                    "Paid – Older Invoices",
+
+                "Total_Paid":
+                    "Total Paid",
+
+                "Outstanding":
+                    "Outstanding"
+            }
+        )
     )
+
 
     st.dataframe(
         monthly_display,
@@ -1939,78 +2115,96 @@ if IS_FINANCIAL:
         hide_index=True
     )
 
+
 # ==========================================================
-# PERCENTAGE VIEW
+# PERCENTAGE MONTHLY VIEW
 # ==========================================================
 
 else:
 
-    monthly_percentage = monthly_display.copy()
+    monthly_percentage = (
+        monthly_display.copy()
+    )
 
-    # ------------------------------------------------------
-    # Current Invoice Month Paid %
-    # ------------------------------------------------------
-
-    monthly_percentage["Paid – Current %"] = np.where(
-        monthly_percentage["Total_Invoiced"] > 0,
+    monthly_percentage[
+        "Paid – Current %"
+    ] = np.where(
+        monthly_percentage[
+            "Total_Invoiced"
+        ] > 0,
         (
-            monthly_percentage["Paid_Current_Month"]
+            monthly_percentage[
+                "Paid_Current_Month"
+            ]
             /
-            monthly_percentage["Total_Invoiced"]
+            monthly_percentage[
+                "Total_Invoiced"
+            ]
         ) * 100,
         0
     )
 
-    # ------------------------------------------------------
-    # Older Invoice Paid %
-    # ------------------------------------------------------
 
-    monthly_percentage["Paid – Older %"] = np.where(
-        monthly_percentage["Total_Invoiced"] > 0,
+    monthly_percentage[
+        "Paid – Older %"
+    ] = np.where(
+        monthly_percentage[
+            "Total_Invoiced"
+        ] > 0,
         (
-            monthly_percentage["Paid_Older_Invoices"]
+            monthly_percentage[
+                "Paid_Older_Invoices"
+            ]
             /
-            monthly_percentage["Total_Invoiced"]
+            monthly_percentage[
+                "Total_Invoiced"
+            ]
         ) * 100,
         0
     )
 
-    # ------------------------------------------------------
-    # Total Paid %
-    #
-    # This CAN exceed 100%.
-    # That is intentional.
-    # ------------------------------------------------------
 
-    monthly_percentage["Total Paid %"] = np.where(
-        monthly_percentage["Total_Invoiced"] > 0,
+    monthly_percentage[
+        "Total Paid %"
+    ] = np.where(
+        monthly_percentage[
+            "Total_Invoiced"
+        ] > 0,
         (
-            monthly_percentage["Total_Paid"]
+            monthly_percentage[
+                "Total_Paid"
+            ]
             /
-            monthly_percentage["Total_Invoiced"]
+            monthly_percentage[
+                "Total_Invoiced"
+            ]
         ) * 100,
         0
     )
 
-    # ------------------------------------------------------
-    # Outstanding %
-    # ------------------------------------------------------
 
-    monthly_percentage["Outstanding %"] = np.where(
-        monthly_percentage["Total_Invoiced"] > 0,
+    monthly_percentage[
+        "Outstanding %"
+    ] = np.where(
+        monthly_percentage[
+            "Total_Invoiced"
+        ] > 0,
         (
-            monthly_percentage["Outstanding"]
+            monthly_percentage[
+                "Outstanding"
+            ]
             /
-            monthly_percentage["Total_Invoiced"]
+            monthly_percentage[
+                "Total_Invoiced"
+            ]
         ) * 100,
         0
     )
 
-    # ------------------------------------------------------
-    # TOTAL ROW
-    # ------------------------------------------------------
 
-    total_invoice = display_df["Total"].sum()
+    total_invoice = (
+        display_df["Total"].sum()
+    )
 
     total_paid_current = (
         monthly_display[
@@ -2036,68 +2230,67 @@ else:
         ].sum()
     )
 
-    percentage_total_row = pd.DataFrame([{
 
-        "Month": "TOTAL",
+    percentage_total_row = pd.DataFrame([
+        {
 
-        "Customers":
-            display_df[
-                "Customer Name"
-            ].nunique(),
+            "Month": "TOTAL",
 
-        "Invoices":
-            display_df[
-                "Invoice Number"
-            ].nunique(),
+            "Customers":
+                display_df[
+                    "Customer Name"
+                ].nunique(),
 
-        "Paid – Current %": (
-            total_paid_current
-            / total_invoice * 100
-            if total_invoice > 0
-            else 0
-        ),
+            "Invoices":
+                display_df[
+                    "Invoice Number"
+                ].nunique(),
 
-        "Paid – Older %": (
-            total_paid_older
-            / total_invoice * 100
-            if total_invoice > 0
-            else 0
-        ),
+            "Paid – Current %": (
+                total_paid_current
+                / total_invoice * 100
+                if total_invoice > 0
+                else 0
+            ),
 
-        "Total Paid %": (
-            total_paid_value
-            / total_invoice * 100
-            if total_invoice > 0
-            else 0
-        ),
+            "Paid – Older %": (
+                total_paid_older
+                / total_invoice * 100
+                if total_invoice > 0
+                else 0
+            ),
 
-        "Outstanding %": (
-            total_outstanding
-            / total_invoice * 100
-            if total_invoice > 0
-            else 0
-        )
-    }])
+            "Total Paid %": (
+                total_paid_value
+                / total_invoice * 100
+                if total_invoice > 0
+                else 0
+            ),
 
-    # ------------------------------------------------------
-    # KEEP REQUIRED COLUMNS
-    # ------------------------------------------------------
+            "Outstanding %": (
+                total_outstanding
+                / total_invoice * 100
+                if total_invoice > 0
+                else 0
+            )
+        }
+    ])
 
-    monthly_percentage = monthly_percentage[
-        [
-            "Month",
-            "Customers",
-            "Invoices",
-            "Paid – Current %",
-            "Paid – Older %",
-            "Total Paid %",
-            "Outstanding %"
+
+    monthly_percentage = (
+        monthly_percentage[
+            [
+                "Month",
+                "Customers",
+                "Invoices",
+                "Paid – Current %",
+                "Paid – Older %",
+                "Total Paid %",
+                "Outstanding %"
+            ]
         ]
-    ]
+    )
 
-    # ------------------------------------------------------
-    # ADD TOTAL
-    # ------------------------------------------------------
 
     monthly_percentage = pd.concat(
         [
@@ -2107,9 +2300,6 @@ else:
         ignore_index=True
     )
 
-    # ------------------------------------------------------
-    # FORMAT %
-    # ------------------------------------------------------
 
     for col in [
         "Paid – Current %",
@@ -2121,56 +2311,53 @@ else:
         monthly_percentage[col] = (
             monthly_percentage[col]
             .map(
-                lambda x: f"{x:.1f}%"
+                lambda x:
+                    f"{x:.1f}%"
             )
         )
+
 
     st.dataframe(
         monthly_percentage,
         width="stretch",
         hide_index=True
     )
+
+
+# ==========================================================
+# CUSTOMER MONTHLY BREAKDOWN
+# ==========================================================
+
 st.divider()
 
-# ----------------------------------------------------------
-# CUSTOMER MONTHLY BREAKDOWN
-# ----------------------------------------------------------
+st.subheader(
+    "Customer Invoice Breakdown"
+)
 
-st.subheader("Customer Invoice Breakdown")
 
-# ----------------------------------------------------------
-# CUSTOMER PAYMENT MATRIX
-# ----------------------------------------------------------
 show_outstanding_only = st.checkbox(
     "Show Outstanding Customers Only",
     value=True
 )
-###################################################################
 
 
+months = sorted(
+    display_df["Month"].unique()
+)
 
-months = sorted(display_df["Month"].unique())
-# ----------------------------------------------------------
-# GRAND TOTALS
-# ----------------------------------------------------------
-
-grand_invoice = {m: 0 for m in months}
-grand_paid = {m: 0 for m in months}
-
-overall_invoice = 0
-overall_paid = 0
 rows = []
-########################################################
+
+
 # ==========================================================
 # CUSTOMER PAYMENT MATRIX
 # ==========================================================
 
-months = sorted(display_df["Month"].unique())
-
-rows = []
-
 for customer in sorted(
-    display_df["Customer Name"].dropna().unique()
+    display_df[
+        "Customer Name"
+    ]
+    .dropna()
+    .unique()
 ):
 
     row = {
@@ -2178,24 +2365,34 @@ for customer in sorted(
     }
 
     customer_df = display_df[
-        display_df["Customer Name"] == customer
+        display_df["Customer Name"]
+        == customer
     ]
 
-    total_invoice = customer_df["Total"].sum()
-    total_paid = customer_df["Paid"].sum()
+    total_invoice = (
+        customer_df["Total"].sum()
+    )
 
-    # ------------------------------------------------------
-    # MONTHLY CELLS
-    # ------------------------------------------------------
+    total_paid = (
+        customer_df["Paid"].sum()
+    )
+
 
     for month in months:
 
         month_df = customer_df[
-            customer_df["Month"] == month
+            customer_df["Month"]
+            == month
         ]
 
-        invoice_value = month_df["Total"].sum()
-        paid_value = month_df["Paid"].sum()
+        invoice_value = (
+            month_df["Total"].sum()
+        )
+
+        paid_value = (
+            month_df["Paid"].sum()
+        )
+
 
         if IS_FINANCIAL:
 
@@ -2206,7 +2403,8 @@ for customer in sorted(
             elif paid_value == 0:
 
                 row[month] = (
-                    f"£0 / £{invoice_value:,.0f}"
+                    f"£0 / "
+                    f"£{invoice_value:,.0f}"
                 )
 
             elif paid_value >= invoice_value:
@@ -2222,11 +2420,8 @@ for customer in sorted(
                     f"£{invoice_value:,.0f}"
                 )
 
-        else:
 
-            # --------------------------------------------------
-            # PERCENTAGE VIEW
-            # --------------------------------------------------
+        else:
 
             if invoice_value == 0:
 
@@ -2235,16 +2430,18 @@ for customer in sorted(
             else:
 
                 paid_pct = (
-                    paid_value / invoice_value
+                    paid_value
+                    / invoice_value
                 ) * 100
 
                 row[month] = (
                     f"{paid_pct:.1f}%"
                 )
 
-    # ------------------------------------------------------
+
+    # ======================================================
     # TOTAL
-    # ------------------------------------------------------
+    # ======================================================
 
     if IS_FINANCIAL:
 
@@ -2255,7 +2452,8 @@ for customer in sorted(
         elif total_paid == 0:
 
             row["Total"] = (
-                f"£0 / £{total_invoice:,.0f}"
+                f"£0 / "
+                f"£{total_invoice:,.0f}"
             )
 
         elif total_paid >= total_invoice:
@@ -2280,17 +2478,22 @@ for customer in sorted(
         else:
 
             total_paid_pct = (
-                total_paid / total_invoice
+                total_paid
+                / total_invoice
             ) * 100
 
             row["Total"] = (
                 f"{total_paid_pct:.1f}%"
             )
 
+
     rows.append(row)
 
 
-customer_table = pd.DataFrame(rows)
+customer_table = pd.DataFrame(
+    rows
+)
+
 
 # ==========================================================
 # OUTSTANDING ONLY FILTER
@@ -2300,7 +2503,9 @@ if show_outstanding_only:
 
     if IS_FINANCIAL:
 
-        def has_outstanding(total_value):
+        def has_outstanding(
+            total_value
+        ):
 
             if total_value == "-":
                 return False
@@ -2328,7 +2533,9 @@ if show_outstanding_only:
 
     else:
 
-        def has_outstanding(total_value):
+        def has_outstanding(
+            total_value
+        ):
 
             if total_value == "-":
                 return False
@@ -2341,48 +2548,59 @@ if show_outstanding_only:
 
             return percentage < 100
 
-    customer_table = customer_table[
-        customer_table["Total"].apply(
-            has_outstanding
-        )
-    ]
+
+    customer_table = (
+        customer_table[
+            customer_table["Total"]
+            .apply(has_outstanding)
+        ]
+    )
 
 
 # ==========================================================
-# GRAND TOTAL ROW
+# GRAND TOTAL
 # ==========================================================
 
-# Determine which customers are currently visible
-# after the Outstanding Only filter
-visible_customers = customer_table["Customer Name"].tolist()
+visible_customers = (
+    customer_table[
+        "Customer Name"
+    ].tolist()
+)
 
 grand_total_df = display_df[
-    display_df["Customer Name"].isin(visible_customers)
+    display_df["Customer Name"]
+    .isin(visible_customers)
 ].copy()
 
-# ----------------------------------------------------------
-# CREATE GRAND TOTAL ROW
-# ----------------------------------------------------------
 
 grand_row = {
     "Customer Name": "GRAND TOTAL"
 }
 
-grand_total_invoice = grand_total_df["Total"].sum()
-grand_total_paid = grand_total_df["Paid"].sum()
+grand_total_invoice = (
+    grand_total_df["Total"].sum()
+)
 
-# ----------------------------------------------------------
-# MONTHLY GRAND TOTALS
-# ----------------------------------------------------------
+grand_total_paid = (
+    grand_total_df["Paid"].sum()
+)
+
 
 for month in months:
 
     month_df = grand_total_df[
-        grand_total_df["Month"] == month
+        grand_total_df["Month"]
+        == month
     ]
 
-    month_invoice = month_df["Total"].sum()
-    month_paid = month_df["Paid"].sum()
+    month_invoice = (
+        month_df["Total"].sum()
+    )
+
+    month_paid = (
+        month_df["Paid"].sum()
+    )
+
 
     if IS_FINANCIAL:
 
@@ -2393,7 +2611,8 @@ for month in months:
         elif month_paid == 0:
 
             grand_row[month] = (
-                f"£0 / £{month_invoice:,.0f}"
+                f"£0 / "
+                f"£{month_invoice:,.0f}"
             )
 
         elif month_paid >= month_invoice:
@@ -2418,16 +2637,18 @@ for month in months:
         else:
 
             month_paid_pct = (
-                month_paid / month_invoice
+                month_paid
+                / month_invoice
             ) * 100
 
             grand_row[month] = (
                 f"{month_paid_pct:.1f}%"
             )
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # GRAND TOTAL COLUMN
-# ----------------------------------------------------------
+# ==========================================================
 
 if IS_FINANCIAL:
 
@@ -2438,7 +2659,8 @@ if IS_FINANCIAL:
     elif grand_total_paid == 0:
 
         grand_row["Total"] = (
-            f"£0 / £{grand_total_invoice:,.0f}"
+            f"£0 / "
+            f"£{grand_total_invoice:,.0f}"
         )
 
     elif grand_total_paid >= grand_total_invoice:
@@ -2471,9 +2693,6 @@ else:
             f"{grand_total_paid_pct:.1f}%"
         )
 
-# ----------------------------------------------------------
-# APPEND GRAND TOTAL
-# ----------------------------------------------------------
 
 customer_table = pd.concat(
     [
@@ -2482,6 +2701,7 @@ customer_table = pd.concat(
     ],
     ignore_index=True
 )
+
 
 # ==========================================================
 # CUSTOMER TABLE COLOURS
@@ -2492,15 +2712,14 @@ def colour_cells(value):
     if value == "-":
         return ""
 
-    # ------------------------------------------------------
-    # FINANCIAL VIEW
-    # ------------------------------------------------------
 
     if IS_FINANCIAL:
 
         if "/" not in value:
 
-            return "background-color:#d9ead3;"
+            return (
+                "background-color:#d9ead3;"
+            )
 
         paid = float(
             value
@@ -2520,13 +2739,14 @@ def colour_cells(value):
 
         if paid == 0:
 
-            return "background-color:#f4cccc;"
+            return (
+                "background-color:#f4cccc;"
+            )
 
-        return "background-color:#fff2cc;"
+        return (
+            "background-color:#fff2cc;"
+        )
 
-    # ------------------------------------------------------
-    # PERCENTAGE VIEW
-    # ------------------------------------------------------
 
     percentage = float(
         value
@@ -2536,36 +2756,39 @@ def colour_cells(value):
 
     if percentage >= 100:
 
-        return "background-color:#d9ead3;"
+        return (
+            "background-color:#d9ead3;"
+        )
 
     elif percentage <= 0:
 
-        return "background-color:#f4cccc;"
+        return (
+            "background-color:#f4cccc;"
+        )
 
     else:
 
-        return "background-color:#fff2cc;"
+        return (
+            "background-color:#fff2cc;"
+        )
 
 
-# ----------------------------------------------------------
-# STYLE CUSTOMER TABLE
-# ----------------------------------------------------------
-
-styled = customer_table.style.map(
-    colour_cells,
-    subset=customer_table.columns[1:]
+styled = (
+    customer_table.style
+    .map(
+        colour_cells,
+        subset=customer_table.columns[1:]
+    )
 )
 
-# ----------------------------------------------------------
-# HIGHLIGHT GRAND TOTAL ROW
-# ----------------------------------------------------------
 
 def highlight_grand_total(row):
 
     if row["Customer Name"] == "GRAND TOTAL":
 
         return [
-            "font-weight:bold; background-color:#e6e6e6;"
+            "font-weight:bold; "
+            "background-color:#e6e6e6;"
         ] * len(row)
 
     return [""] * len(row)
@@ -2576,9 +2799,6 @@ styled = styled.apply(
     axis=1
 )
 
-# ----------------------------------------------------------
-# DISPLAY
-# ----------------------------------------------------------
 
 st.dataframe(
     styled,
@@ -2587,25 +2807,34 @@ st.dataframe(
 )
 
 
-
 # ==========================================================
-# PART 3 - CUSTOMER DRILLDOWN
+# PART 3
+# CUSTOMER DRILLDOWN
 # ==========================================================
 
 st.divider()
-st.header("🔍 Customer Details")
+
+st.header(
+    "🔍 Customer Details"
+)
+
 
 # ==========================================================
 # INDEPENDENT CUSTOMER FILTERS
 # ==========================================================
 
-st.subheader("Customer Filters")
+st.subheader(
+    "Customer Filters"
+)
 
-cf1, cf2, cf3, cf4, cf5 = st.columns(5)
+cf1, cf2, cf3, cf4, cf5 = (
+    st.columns(5)
+)
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # CUSTOMER DATE FILTERS
-# ----------------------------------------------------------
+# ==========================================================
 
 with cf1:
 
@@ -2621,6 +2850,7 @@ with cf1:
         key="customer_start_date"
     )
 
+
 with cf2:
 
     customer_end_date = st.date_input(
@@ -2635,9 +2865,10 @@ with cf2:
         key="customer_end_date"
     )
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # CUSTOMER SERVICE FILTER
-# ----------------------------------------------------------
+# ==========================================================
 
 with cf3:
 
@@ -2648,15 +2879,18 @@ with cf3:
         "Unclassified"
     ]
 
-    customer_selected_service = st.selectbox(
-        "Customer Service Type",
-        customer_service_options,
-        key="customer_service_type"
+    customer_selected_service = (
+        st.selectbox(
+            "Customer Service Type",
+            customer_service_options,
+            key="customer_service_type"
+        )
     )
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # CUSTOMER INVOICE TYPE FILTER
-# ----------------------------------------------------------
+# ==========================================================
 
 with cf4:
 
@@ -2666,15 +2900,18 @@ with cf4:
         "Recurring Customer"
     ]
 
-    customer_selected_invoice_type = st.selectbox(
-        "Invoice Type",
-        customer_invoice_type_options,
-        key="customer_invoice_type"
+    customer_selected_invoice_type = (
+        st.selectbox(
+            "Invoice Type",
+            customer_invoice_type_options,
+            key="customer_invoice_type"
+        )
     )
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # CUSTOMER STATUS FILTER
-# ----------------------------------------------------------
+# ==========================================================
 
 with cf5:
 
@@ -2684,46 +2921,63 @@ with cf5:
         "Inactive"
     ]
 
-    customer_selected_status = st.selectbox(
-        "Customer Status",
-        customer_status_options,
-        key="customer_detail_status"
+    customer_selected_status = (
+        st.selectbox(
+            "Customer Status",
+            customer_status_options,
+            key="customer_detail_status"
+        )
     )
 
+
 # ==========================================================
-# BUILD INDEPENDENT CUSTOMER DATASET
+# BUILD CUSTOMER DATASET
 # ==========================================================
 
 customer_display_df = invoices[
-    (invoices["Invoice Date"] >= pd.Timestamp(customer_start_date)) &
-    (invoices["Invoice Date"] <= pd.Timestamp(customer_end_date))
+    (
+        invoices["Invoice Date"]
+        >= pd.Timestamp(customer_start_date)
+    )
+    &
+    (
+        invoices["Invoice Date"]
+        <= pd.Timestamp(customer_end_date)
+    )
 ].copy()
 
 
-# ----------------------------------------------------------
+# ==========================================================
 # CUSTOMER SERVICE FILTER
-# ----------------------------------------------------------
+# ==========================================================
 
 if customer_selected_service != "All Services":
 
-    customer_display_df = customer_display_df[
-        customer_display_df["Service Type"]
-        == customer_selected_service
-    ].copy()
-# ----------------------------------------------------------
+    customer_display_df = (
+        customer_display_df[
+            customer_display_df["Service Type"]
+            == customer_selected_service
+        ].copy()
+    )
+
+
+# ==========================================================
 # CUSTOMER INVOICE TYPE FILTER
-# ----------------------------------------------------------
+# ==========================================================
 
 if customer_selected_invoice_type != "All Invoices":
 
-    customer_display_df = customer_display_df[
-        customer_display_df["Invoice Type"]
-        == customer_selected_invoice_type
-    ].copy()
+    customer_display_df = (
+        customer_display_df[
+            customer_display_df["Invoice Type"]
+            == customer_selected_invoice_type
+        ].copy()
+    )
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # CUSTOMER STATUS FILTER
-# ----------------------------------------------------------
+# ==========================================================
 
 if customer_selected_status != "All Customers":
 
@@ -2739,12 +2993,14 @@ if customer_selected_status != "All Customers":
         .str.strip()
     )
 
-    customer_display_df = customer_display_df[
-        customer_display_df["Customer Name"]
-        .astype(str)
-        .str.strip()
-        .isin(selected_status_customers)
-    ].copy()
+    customer_display_df = (
+        customer_display_df[
+            customer_display_df["Customer Name"]
+            .astype(str)
+            .str.strip()
+            .isin(selected_status_customers)
+        ].copy()
+    )
 
 
 # ==========================================================
@@ -2758,6 +3014,7 @@ customer_list = sorted(
     .dropna()
     .unique()
 )
+
 
 if customer_list:
 
@@ -2774,19 +3031,24 @@ else:
     )
 
     st.stop()
-# ----------------------------------------------------------
-# CUSTOMER DATA
-# ----------------------------------------------------------
 
-customer_invoices = customer_display_df[
-    customer_display_df["Customer Name"]
-    == selected_customer
-].copy()
+
+# ==========================================================
+# CUSTOMER DATA
+# ==========================================================
+
+customer_invoices = (
+    customer_display_df[
+        customer_display_df["Customer Name"]
+        == selected_customer
+    ].copy()
+)
 
 customer_payments = payments[
     payments["Customer Name"]
     == selected_customer
 ].copy()
+
 
 # ==========================================================
 # CUSTOMER INFORMATION
@@ -2805,51 +3067,57 @@ if not customer_info.empty:
 
     info = customer_info.iloc[0]
 
-    st.subheader("Customer Information")
-
-    # ------------------------------------------------------
-    # CUSTOMER NAME
-    # ------------------------------------------------------
+    st.subheader(
+        "Customer Information"
+    )
 
     customer_name = str(
-        info.get("Display Name", selected_customer)
+        info.get(
+            "Display Name",
+            selected_customer
+        )
     ).strip()
 
-    # ------------------------------------------------------
-    # PHONE NUMBERS
-    # ------------------------------------------------------
 
     phone_number = str(
-        info.get("Phone", "")
+        info.get(
+            "Phone",
+            ""
+        )
     ).strip()
+
 
     alt_number = str(
-        info.get("Billing Phone", "")
+        info.get(
+            "Billing Phone",
+            ""
+        )
     ).strip()
+
 
     mobile_number = str(
-        info.get("MobilePhone", "")
+        info.get(
+            "MobilePhone",
+            ""
+        )
     ).strip()
 
-    # ------------------------------------------------------
-    # EMAIL
-    # ------------------------------------------------------
 
     email_address = str(
-        info.get("EmailID", "")
+        info.get(
+            "EmailID",
+            ""
+        )
     ).strip()
 
-    # ------------------------------------------------------
-    # STATUS
-    # ------------------------------------------------------
 
     customer_status = str(
-        info.get("Status", "Unknown")
+        info.get(
+            "Status",
+            "Unknown"
+        )
     ).strip()
 
-    # ------------------------------------------------------
-    # ADDRESS
-    # ------------------------------------------------------
 
     address_parts = []
 
@@ -2863,24 +3131,31 @@ if not customer_info.empty:
         "Billing Code"
     ]:
 
-        value = info.get(col, "")
+        value = info.get(
+            col,
+            ""
+        )
 
         if pd.notna(value):
 
-            value = str(value).strip()
+            value = str(
+                value
+            ).strip()
 
             if value:
-                address_parts.append(value)
+
+                address_parts.append(
+                    value
+                )
+
 
     customer_address = ", ".join(
         address_parts
     )
 
-    # ------------------------------------------------------
-    # DISPLAY
-    # ------------------------------------------------------
 
     c1, c2 = st.columns(2)
+
 
     with c1:
 
@@ -2904,6 +3179,7 @@ if not customer_info.empty:
             mobile_number or "-"
         )
 
+
     with c2:
 
         st.write(
@@ -2921,6 +3197,7 @@ if not customer_info.empty:
             customer_status or "-"
         )
 
+
     st.divider()
 
 
@@ -2928,83 +3205,124 @@ if not customer_info.empty:
 # CUSTOMER KPIs
 # ==========================================================
 
-cust_total = customer_invoices["Total"].sum()
-cust_balance = customer_invoices["Calculated Outstanding"].sum()
-cust_paid = customer_invoices["Paid"].sum()
+cust_total = (
+    customer_invoices["Total"].sum()
+)
+
+cust_balance = (
+    customer_invoices[
+        "Calculated Outstanding"
+    ].sum()
+)
+
+cust_paid = (
+    customer_invoices["Paid"].sum()
+)
+
 
 k1, k2, k3 = st.columns(3)
+
 
 if IS_FINANCIAL:
 
     with k1:
+
         st.metric(
             "Total Invoiced",
             f"£{cust_total:,.2f}"
         )
 
     with k2:
+
         st.metric(
             "Paid",
             f"£{cust_paid:,.2f}"
         )
 
     with k3:
+
         st.metric(
             "Outstanding",
             f"£{cust_balance:,.2f}"
         )
 
+
 else:
 
     customer_paid_pct = (
-        cust_paid / cust_total * 100
-        if cust_total > 0 else 0
+        cust_paid
+        / cust_total
+        * 100
+        if cust_total > 0
+        else 0
     )
 
     customer_outstanding_pct = (
-        cust_balance / cust_total * 100
-        if cust_total > 0 else 0
+        cust_balance
+        / cust_total
+        * 100
+        if cust_total > 0
+        else 0
     )
 
     with k1:
+
         st.metric(
             "Payment Rate",
             f"{customer_paid_pct:.1f}%"
         )
 
     with k2:
+
         st.metric(
             "Outstanding",
             f"{customer_outstanding_pct:.1f}%"
         )
 
     with k3:
+
         st.metric(
             "Collection",
             f"{customer_paid_pct:.1f}%"
         )
 
-st.divider()
-# ----------------------------------------------------------
-# INVOICE LEDGER
-# ----------------------------------------------------------
 
-st.subheader("Invoice Ledger")
+st.divider()
+
+
+# ==========================================================
+# INVOICE LEDGER
+# ==========================================================
+
+st.subheader(
+    "Invoice Ledger"
+)
 
 ledger = customer_invoices.copy()
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # PAYMENT SUMMARY
-# ----------------------------------------------------------
+# ==========================================================
 
 payment_summary = (
     customer_payments
-    .groupby("Invoice Number", as_index=False)
+    .groupby(
+        "Invoice Number",
+        as_index=False
+    )
     .agg(
-        Payment_Date=("Date", "max"),
-        Paid_Amount=("Amount Applied to Invoice", "sum")
+        Payment_Date=(
+            "Date",
+            "max"
+        ),
+        Paid_Amount=(
+            "Amount Applied to Invoice",
+            "sum"
+        )
     )
 )
+
 
 ledger = ledger.merge(
     payment_summary,
@@ -3012,58 +3330,77 @@ ledger = ledger.merge(
     how="left"
 )
 
+
 ledger["Paid_Amount"] = (
     ledger["Paid_Amount"]
     .fillna(0)
 )
 
-ledger["Payment_Date"] = (
-    ledger["Payment_Date"]
-)
 
-# ----------------------------------------------------------
+# ==========================================================
 # OUTSTANDING
-# ----------------------------------------------------------
+# ==========================================================
 
 ledger["Outstanding"] = (
     ledger["Calculated Outstanding"]
 )
 
-# Safety check
 
 ledger["Paid_Amount"] = ledger[
-    ["Paid_Amount", "Total"]
+    [
+        "Paid_Amount",
+        "Total"
+    ]
 ].min(axis=1)
 
-# ----------------------------------------------------------
+
+# ==========================================================
 # STATUS
-# ----------------------------------------------------------
-today = pd.Timestamp.today().normalize()
+# ==========================================================
+
+today = (
+    pd.Timestamp.today()
+    .normalize()
+)
 
 ledger["Status"] = "Current"
+
 
 ledger.loc[
     ledger["Due Date"] < today,
     "Status"
 ] = "Overdue"
 
+
 ledger.loc[
-    (ledger["Paid_Amount"] > 0) &
+    (ledger["Paid_Amount"] > 0)
+    &
     (ledger["Outstanding"] > 0),
     "Status"
 ] = "Partially Paid"
+
 
 ledger.loc[
     ledger["Outstanding"] <= 0,
     "Status"
 ] = "Paid"
-# ----------------------------------------------------------
+
+
+# ==========================================================
 # DAYS OVERDUE
-# ----------------------------------------------------------
+# ==========================================================
 
 ledger["Days Overdue"] = np.where(
-    ledger["Status"].isin(["Overdue", "Partially Paid"]),
-    (today - ledger["Due Date"]).dt.days,
+    ledger["Status"].isin(
+        [
+            "Overdue",
+            "Partially Paid"
+        ]
+    ),
+    (
+        today
+        - ledger["Due Date"]
+    ).dt.days,
     0
 )
 
@@ -3073,9 +3410,6 @@ ledger["Days Overdue"] = (
     .astype(int)
 )
 
-# ----------------------------------------------------------
-# DISPLAY
-# ----------------------------------------------------------
 
 # ==========================================================
 # LEDGER DISPLAY
@@ -3097,47 +3431,67 @@ if IS_FINANCIAL:
         ]
     ]
 
-    ledger = ledger.rename(columns={
-        "Invoice Number": "Invoice",
-        "Payment_Date": "Payment Date",
-        "Total": "Amount (£)",
-        "Paid_Amount": "Paid (£)",
-        "Outstanding": "Outstanding (£)"
-    })
+    ledger = ledger.rename(
+        columns={
+            "Invoice Number":
+                "Invoice",
+
+            "Payment_Date":
+                "Payment Date",
+
+            "Total":
+                "Amount (£)",
+
+            "Paid_Amount":
+                "Paid (£)",
+
+            "Outstanding":
+                "Outstanding (£)"
+        }
+    )
+
 
 else:
-
-    # ------------------------------------------------------
-    # PERCENTAGE LEDGER
-    # ------------------------------------------------------
 
     ledger["Paid %"] = np.where(
         ledger["Total"] > 0,
         (
             ledger["Paid_Amount"]
-            / ledger["Total"]
+            /
+            ledger["Total"]
         ) * 100,
         0
     )
+
 
     ledger["Outstanding %"] = np.where(
         ledger["Total"] > 0,
         (
             ledger["Outstanding"]
-            / ledger["Total"]
+            /
+            ledger["Total"]
         ) * 100,
         0
     )
 
-    ledger["Paid %"] = ledger["Paid %"].map(
-        lambda x: f"{x:.1f}%"
+
+    ledger["Paid %"] = (
+        ledger["Paid %"]
+        .map(
+            lambda x:
+                f"{x:.1f}%"
+        )
     )
 
-    ledger["Outstanding %"] = ledger[
-        "Outstanding %"
-    ].map(
-        lambda x: f"{x:.1f}%"
+
+    ledger["Outstanding %"] = (
+        ledger["Outstanding %"]
+        .map(
+            lambda x:
+                f"{x:.1f}%"
+        )
     )
+
 
     ledger = ledger[
         [
@@ -3152,13 +3506,21 @@ else:
         ]
     ]
 
-    ledger = ledger.rename(columns={
-        "Invoice Number": "Invoice",
-        "Payment_Date": "Payment Date"
-    })
-# ----------------------------------------------------------
+
+    ledger = ledger.rename(
+        columns={
+            "Invoice Number":
+                "Invoice",
+
+            "Payment_Date":
+                "Payment Date"
+        }
+    )
+
+
+# ==========================================================
 # FORMAT DATES
-# ----------------------------------------------------------
+# ==========================================================
 
 date_columns = [
     "Invoice Date",
@@ -3166,43 +3528,76 @@ date_columns = [
     "Payment Date"
 ]
 
+
 for col in date_columns:
+
     ledger[col] = pd.to_datetime(
         ledger[col],
         errors="coerce"
-    ).dt.strftime("%d-%m-%Y")
+    ).dt.strftime(
+        "%d-%m-%Y"
+    )
 
-ledger[date_columns] = ledger[date_columns].fillna("-")
 
-# ----------------------------------------------------------
-# REPLACE ZERO VALUES
-# ----------------------------------------------------------
+ledger[
+    date_columns
+] = ledger[
+    date_columns
+].fillna("-")
 
-ledger["Days Overdue"] = ledger["Days Overdue"].replace(0, "-")
 
-# ----------------------------------------------------------
+# ==========================================================
+# ZERO DAYS OVERDUE
+# ==========================================================
+
+ledger["Days Overdue"] = (
+    ledger["Days Overdue"]
+    .replace(0, "-")
+)
+
+
+# ==========================================================
 # ROW COLOURS
-# ----------------------------------------------------------
+# ==========================================================
 
 def colour_rows(row):
 
     if row["Status"] == "Paid":
-        colour = "background-color:#d4edda;color:black;"
+
+        colour = (
+            "background-color:#d4edda;"
+            "color:black;"
+        )
 
     elif row["Status"] == "Current":
-        colour = "background-color:#fff3cd;color:black;"
+
+        colour = (
+            "background-color:#fff3cd;"
+            "color:black;"
+        )
 
     elif row["Status"] == "Partially Paid":
-        colour = "background-color:#ffe599;color:black;"
 
-    else:  # Overdue
-        colour = "background-color:#f8d7da;color:black;"
+        colour = (
+            "background-color:#ffe599;"
+            "color:black;"
+        )
 
-    return [colour] * len(row)
-###################################
-# ----------------------------------------------------------
+    else:
+
+        colour = (
+            "background-color:#f8d7da;"
+            "color:black;"
+        )
+
+    return [
+        colour
+    ] * len(row)
+
+
+# ==========================================================
 # DISPLAY CURRENCY
-# ----------------------------------------------------------
+# ==========================================================
 
 if IS_FINANCIAL:
 
@@ -3214,20 +3609,595 @@ if IS_FINANCIAL:
 
     for col in currency_columns:
 
-        ledger[col] = ledger[col].apply(
-            lambda x:
-                "-"
-                if pd.isna(x) or x == 0
-                else f"£{x:,.2f}"
+        ledger[col] = (
+            ledger[col]
+            .apply(
+                lambda x:
+                    "-"
+                    if pd.isna(x) or x == 0
+                    else f"£{x:,.2f}"
+            )
         )
+
 
 ledger_style = (
     ledger.style
-    .apply(colour_rows, axis=1)
+    .apply(
+        colour_rows,
+        axis=1
+    )
 )
+
+
 st.dataframe(
     ledger_style,
     width="stretch",
     hide_index=True
 )
-######################################################
+
+
+# ==========================================================
+# ==========================================================
+# PART 4 - DAILY PAYMENTS RECEIVED
+# ==========================================================
+# ==========================================================
+#
+# IMPORTANT:
+#
+# This section is COMPLETELY INDEPENDENT of the main
+# dashboard invoice filters.
+#
+# It uses PAYMENT DATE as the controlling date.
+#
+# Therefore:
+#
+# Main Dashboard Date Filter
+#       ↓
+# affects invoice dashboard only
+#
+# Daily Payment Start/End Date
+#       ↓
+# affects this section only
+#
+# ==========================================================
+
+st.divider()
+
+st.header(
+    "💷 Payments Received"
+)
+
+st.caption(
+    "Independent view of payments received based on the actual payment date."
+)
+
+
+# ==========================================================
+# PAYMENT DATE FILTERS
+# ==========================================================
+
+payment_filter_col1, payment_filter_col2 = (
+    st.columns(2)
+)
+
+
+# ----------------------------------------------------------
+# Determine available payment dates
+# ----------------------------------------------------------
+
+valid_payment_dates = (
+    payments["Date"]
+    .dropna()
+)
+
+if not valid_payment_dates.empty:
+
+    payment_min_date = (
+        valid_payment_dates
+        .min()
+        .date()
+    )
+
+    payment_max_date = (
+        valid_payment_dates
+        .max()
+        .date()
+    )
+
+else:
+
+    payment_min_date = (
+        pd.Timestamp.today()
+        .date()
+    )
+
+    payment_max_date = (
+        pd.Timestamp.today()
+        .date()
+    )
+
+
+# ----------------------------------------------------------
+# Default = current month
+# ----------------------------------------------------------
+
+today_date = (
+    pd.Timestamp.today()
+    .date()
+)
+
+default_payment_start = (
+    today_date.replace(day=1)
+)
+
+default_payment_end = (
+    today_date
+)
+
+
+# ----------------------------------------------------------
+# PAYMENT START DATE
+# ----------------------------------------------------------
+
+with payment_filter_col1:
+
+    payment_start_date = st.date_input(
+        "Payment Start Date",
+        value=default_payment_start,
+        min_value=payment_min_date,
+        max_value=payment_max_date,
+        key="payment_start_date"
+    )
+
+
+# ----------------------------------------------------------
+# PAYMENT END DATE
+# ----------------------------------------------------------
+
+with payment_filter_col2:
+
+    payment_end_date = st.date_input(
+        "Payment End Date",
+        value=default_payment_end,
+        min_value=payment_min_date,
+        max_value=payment_max_date,
+        key="payment_end_date"
+    )
+
+
+# ==========================================================
+# VALIDATE PAYMENT DATE RANGE
+# ==========================================================
+
+if payment_start_date > payment_end_date:
+
+    st.error(
+        "Payment Start Date cannot be after Payment End Date."
+    )
+
+else:
+
+    # ======================================================
+    # BUILD DAILY PAYMENT DATASET
+    # ======================================================
+
+    daily_payments = payments.copy()
+
+
+    # ------------------------------------------------------
+    # PAYMENT DATE FILTER
+    # ------------------------------------------------------
+
+    daily_payments = daily_payments[
+        (
+            daily_payments["Date"]
+            >= pd.Timestamp(
+                payment_start_date
+            )
+        )
+        &
+        (
+            daily_payments["Date"]
+            <
+            pd.Timestamp(
+                payment_end_date
+            )
+            + pd.Timedelta(days=1)
+        )
+    ].copy()
+
+
+    # ======================================================
+    # CLEAN PAYMENT AMOUNT
+    # ======================================================
+
+    daily_payments[
+        "Amount Applied to Invoice"
+    ] = pd.to_numeric(
+        daily_payments[
+            "Amount Applied to Invoice"
+        ],
+        errors="coerce"
+    ).fillna(0)
+
+
+    # ======================================================
+    # INVOICE LOOKUP
+    #
+    # We attach:
+    #
+    # Customer Name
+    # Invoice Date
+    # Due Date
+    #
+    # from the deduplicated invoice dataset.
+    # ======================================================
+
+    invoice_lookup = invoices[
+        [
+            "Invoice Number",
+            "Customer Name",
+            "Invoice Date",
+            "Due Date"
+        ]
+    ].copy()
+
+
+    invoice_lookup["Invoice Number"] = (
+        invoice_lookup["Invoice Number"]
+        .astype(str)
+        .str.strip()
+    )
+
+
+    daily_payments["Invoice Number"] = (
+        daily_payments["Invoice Number"]
+        .astype(str)
+        .str.strip()
+    )
+
+
+    # ------------------------------------------------------
+    # Remove possible duplicate lookup rows
+    # ------------------------------------------------------
+
+    invoice_lookup = (
+        invoice_lookup
+        .drop_duplicates(
+            subset="Invoice Number",
+            keep="first"
+        )
+    )
+
+
+    # ------------------------------------------------------
+    # Attach invoice information
+    # ------------------------------------------------------
+
+    daily_payments = (
+        daily_payments
+        .merge(
+            invoice_lookup,
+            on="Invoice Number",
+            how="left"
+        )
+    )
+
+
+    # ======================================================
+    # PAYMENT KPI
+    # ======================================================
+
+    payment_received_total = (
+        daily_payments[
+            "Amount Applied to Invoice"
+        ].sum()
+    )
+
+
+    payment_transaction_count = (
+        len(daily_payments)
+    )
+
+
+    payment_invoice_count = (
+        daily_payments[
+            "Invoice Number"
+        ].nunique()
+    )
+
+
+    payment_customer_count = (
+        daily_payments[
+            "Customer Name"
+        ].nunique()
+    )
+
+
+    # ======================================================
+    # PAYMENT KPI CARDS
+    # ======================================================
+
+    p1, p2, p3, p4 = (
+        st.columns(4)
+    )
+
+
+    with p1:
+
+        st.metric(
+            "💷 Payments Received",
+            f"£{payment_received_total:,.2f}"
+        )
+
+
+    with p2:
+
+        st.metric(
+            "📅 Payment Days",
+            (
+                (
+                    payment_end_date
+                    - payment_start_date
+                ).days
+                + 1
+            )
+        )
+
+
+    with p3:
+
+        st.metric(
+            "🧾 Invoices Paid",
+            f"{payment_invoice_count:,}"
+        )
+
+
+    with p4:
+
+        st.metric(
+            "👥 Customers",
+            f"{payment_customer_count:,}"
+        )
+
+
+    # ======================================================
+    # DAILY PAYMENT SUMMARY
+    # ======================================================
+
+    st.subheader(
+        "Daily Payment Summary"
+    )
+
+
+    if daily_payments.empty:
+
+        st.info(
+            "No payments were received during the selected period."
+        )
+
+    else:
+
+        daily_summary = (
+            daily_payments
+            .groupby(
+                "Date",
+                as_index=False
+            )
+            .agg(
+                Payments_Received=(
+                    "Amount Applied to Invoice",
+                    "sum"
+                ),
+                Transactions=(
+                    "Invoice Number",
+                    "count"
+                ),
+                Invoices=(
+                    "Invoice Number",
+                    "nunique"
+                ),
+                Customers=(
+                    "Customer Name",
+                    "nunique"
+                )
+            )
+            .sort_values("Date")
+        )
+
+
+        # --------------------------------------------------
+        # FORMAT DATE
+        # --------------------------------------------------
+
+        daily_summary["Date"] = (
+            pd.to_datetime(
+                daily_summary["Date"]
+            )
+            .dt.strftime(
+                "%d-%m-%Y"
+            )
+        )
+
+
+        # --------------------------------------------------
+        # FORMAT MONEY
+        # --------------------------------------------------
+
+        daily_summary[
+            "Payments_Received"
+        ] = (
+            daily_summary[
+                "Payments_Received"
+            ]
+            .apply(
+                lambda x:
+                    f"£{x:,.2f}"
+            )
+        )
+
+
+        daily_summary = (
+            daily_summary
+            .rename(
+                columns={
+                    "Date":
+                        "Payment Date",
+
+                    "Payments_Received":
+                        "Payment Received",
+
+                    "Transactions":
+                        "Transactions",
+
+                    "Invoices":
+                        "Invoices",
+
+                    "Customers":
+                        "Customers"
+                }
+            )
+        )
+
+
+        st.dataframe(
+            daily_summary,
+            width="stretch",
+            hide_index=True
+        )
+
+
+        # ==================================================
+        # PAYMENT DETAIL
+        # ==================================================
+
+        st.subheader(
+            "Payment Details"
+        )
+
+
+        payment_detail = daily_payments.copy()
+
+
+        # --------------------------------------------------
+        # PAYMENT DATE
+        # --------------------------------------------------
+
+        payment_detail["Date"] = (
+            pd.to_datetime(
+                payment_detail["Date"],
+                errors="coerce"
+            )
+            .dt.strftime(
+                "%d-%m-%Y"
+            )
+        )
+
+
+        # --------------------------------------------------
+        # INVOICE DATE
+        # --------------------------------------------------
+
+        payment_detail["Invoice Date"] = (
+            pd.to_datetime(
+                payment_detail[
+                    "Invoice Date"
+                ],
+                errors="coerce"
+            )
+            .dt.strftime(
+                "%d-%m-%Y"
+            )
+        )
+
+
+        # --------------------------------------------------
+        # DUE DATE
+        # --------------------------------------------------
+
+        payment_detail["Due Date"] = (
+            pd.to_datetime(
+                payment_detail[
+                    "Due Date"
+                ],
+                errors="coerce"
+            )
+            .dt.strftime(
+                "%d-%m-%Y"
+            )
+        )
+
+
+        # --------------------------------------------------
+        # SELECT REQUIRED COLUMNS
+        # --------------------------------------------------
+
+        payment_detail = payment_detail[
+            [
+                "Date",
+                "Customer Name",
+                "Invoice Number",
+                "Invoice Date",
+                "Due Date",
+                "Amount Applied to Invoice"
+            ]
+        ].copy()
+
+
+        # --------------------------------------------------
+        # RENAME
+        # --------------------------------------------------
+
+        payment_detail = (
+            payment_detail
+            .rename(
+                columns={
+                    "Date":
+                        "Payment Date",
+
+                    "Invoice Number":
+                        "Invoice",
+
+                    "Amount Applied to Invoice":
+                        "Payment Received"
+                }
+            )
+        )
+
+
+        # --------------------------------------------------
+        # FORMAT PAYMENT AMOUNT
+        # --------------------------------------------------
+
+        payment_detail[
+            "Payment Received"
+        ] = (
+            payment_detail[
+                "Payment Received"
+            ]
+            .apply(
+                lambda x:
+                    f"£{x:,.2f}"
+            )
+        )
+
+
+        # --------------------------------------------------
+        # CLEAN NULL VALUES
+        # --------------------------------------------------
+
+        payment_detail = (
+            payment_detail
+            .fillna("-")
+        )
+
+
+        # ==================================================
+        # DISPLAY
+        # ==================================================
+
+        st.dataframe(
+            payment_detail,
+            width="stretch",
+            hide_index=True
+        )
