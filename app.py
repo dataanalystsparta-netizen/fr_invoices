@@ -9,6 +9,7 @@ import numpy as np
 import requests
 
 from datetime import date
+from html import escape as html_escape
 
 
 # ==========================================================
@@ -43,27 +44,48 @@ def check_login():
         """
         <style>
 
+        .stApp {
+            background: radial-gradient(circle at top, #eef4ff 0%, #f6f8fb 45%, #eef2f7 100%);
+        }
+
         .login-container {
-            max-width: 420px;
-            margin: 80px auto;
-            padding: 30px;
-            border: 1px solid #e6e6e6;
-            border-radius: 14px;
-            background: #ffffff;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            max-width: 430px;
+            margin: 70px auto 30px auto;
+            padding: 34px;
+            border: 1px solid #dfe6ef;
+            border-radius: 22px;
+            background: rgba(255,255,255,0.96);
+            box-shadow: 0 22px 60px rgba(15,23,42,0.12);
         }
 
         .login-title {
             text-align: center;
-            font-size: 28px;
-            font-weight: 700;
+            font-size: 30px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
             margin-bottom: 8px;
+            color: #0f172a;
         }
 
         .login-subtitle {
             text-align: center;
-            color: #666666;
-            margin-bottom: 25px;
+            color: #64748b;
+            margin-bottom: 26px;
+            font-size: 14px;
+        }
+
+        .login-brand {
+            width: 58px;
+            height: 58px;
+            margin: 0 auto 16px auto;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            background: linear-gradient(135deg, #0f172a, #0f766e);
+            color: #ffffff;
+            box-shadow: 0 12px 28px rgba(15,118,110,0.20);
         }
 
         </style>
@@ -77,7 +99,8 @@ def check_login():
     )
 
     st.markdown(
-        '<div class="login-title">🔐 Login</div>',
+        '<div class="login-brand">💰</div>'
+        '<div class="login-title">FastRanking</div>',
         unsafe_allow_html=True
     )
 
@@ -168,6 +191,11 @@ USER_VIEW = st.session_state.get(
 IS_FINANCIAL = USER_VIEW == "financial"
 IS_PERCENTAGE = USER_VIEW == "percentage"
 
+view_label = "Financial View" if IS_FINANCIAL else "Percentage View"
+logged_email = html_escape(
+    str(st.session_state.get("logged_in_email", "")).strip()
+)
+
 
 # ==========================================================
 # LOGOUT
@@ -175,8 +203,38 @@ IS_PERCENTAGE = USER_VIEW == "percentage"
 
 with st.sidebar:
 
-    st.write(
-        f"👤 {st.session_state.get('logged_in_email', '')}"
+    st.markdown(
+        """
+        <div class="sidebar-brand">
+            <div class="sidebar-brand-mark">💰</div>
+            <div>
+                <div class="sidebar-brand-title">FastRanking</div>
+                <div class="sidebar-brand-sub">Payments Dashboard</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        f"""
+        <div class="sidebar-user">
+            <div class="sidebar-user-label">Signed in as</div>
+            <div class="sidebar-user-email">{html_escape(str(st.session_state.get('logged_in_email', '')))}</div>
+            <div class="sidebar-view-chip">{html_escape(view_label)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.12em;font-weight:800;margin:0 0 8px 2px;">Navigate</div>
+        <div style="font-size:12px;color:#cbd5e1;line-height:1.9;padding:0 2px 14px 2px;">
+            Overview<br>Customer Details<br>Payments Received
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
     if st.button(
@@ -195,64 +253,567 @@ with st.sidebar:
 
 
 # ==========================================================
-# TITLE
-# ==========================================================
-
-st.title(
-    "💰 FastRanking Payments Dashboard"
-)
-
-
-# ==========================================================
-# KPI CSS
+# DASHBOARD SHELL / VISUAL SYSTEM
 # ==========================================================
 
 st.markdown(
-    """
+    f"""
     <style>
 
-    .kpi-card{
-        background:#ffffff;
-        border:1px solid #e6e6e6;
-        border-radius:12px;
-        padding:14px;
-        text-align:center;
-        box-shadow:0 1px 6px rgba(0,0,0,0.08);
-        margin-bottom:10px;
-        min-height:118px;
-        box-sizing:border-box;
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
-    }
+    :root {{
+        --fr-ink: #0f172a;
+        --fr-muted: #64748b;
+        --fr-border: #e2e8f0;
+        --fr-white: #ffffff;
+        --fr-teal: #0f766e;
+    }}
 
-    .kpi-title{
-        font-size:15px;
-        color:#666666;
-        margin-bottom:6px;
-        font-weight:600;
-        line-height:1.2;
-    }
+    .stApp {{
+        background: #f6f8fb;
+        color: var(--fr-ink);
+    }}
 
-    .kpi-value{
-        font-size:28px;
-        font-weight:700;
-        color:#111111;
-        line-height:1.1;
-    }
+    .block-container {{
+        max-width: 1540px;
+        padding-top: 1.45rem;
+        padding-bottom: 4rem;
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }}
 
-    .kpi-percentage{
-        font-size:12px;
-        color:#888888;
-        font-weight:500;
-        margin-top:4px;
-        line-height:16px;
-    }
+    [data-testid="stSidebar"] {{
+        background: #0b1220;
+        border-right: 1px solid rgba(255,255,255,0.06);
+    }}
+
+    [data-testid="stSidebar"] > div:first-child {{
+        padding-top: 1.25rem;
+    }}
+
+    [data-testid="stSidebar"] * {{
+        color: #e2e8f0;
+    }}
+
+    [data-testid="stSidebar"] .stButton > button {{
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.10);
+        background: rgba(255,255,255,0.06);
+        color: #f8fafc;
+        font-weight: 700;
+    }}
+
+    [data-testid="stSidebar"] .stButton > button:hover {{
+        border-color: rgba(255,255,255,0.20);
+        background: rgba(255,255,255,0.10);
+    }}
+
+    .sidebar-brand {{
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 4px 2px 18px 2px;
+    }}
+
+    .sidebar-brand-mark {{
+        width: 42px;
+        height: 42px;
+        flex: 0 0 42px;
+        border-radius: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 21px;
+        background: linear-gradient(135deg, #0f766e, #14b8a6);
+        box-shadow: 0 10px 24px rgba(20,184,166,0.20);
+    }}
+
+    .sidebar-brand-title {{
+        font-size: 16px;
+        line-height: 1.1;
+        font-weight: 800;
+        color: #f8fafc;
+    }}
+
+    .sidebar-brand-sub {{
+        font-size: 11px;
+        color: #94a3b8;
+        margin-top: 3px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }}
+
+    .sidebar-user {{
+        margin: 6px 0 18px 0;
+        padding: 13px 14px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.045);
+        border-radius: 14px;
+    }}
+
+    .sidebar-user-label {{
+        font-size: 10px;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+    }}
+
+    .sidebar-user-email {{
+        font-size: 12px;
+        color: #f8fafc;
+        margin-top: 4px;
+        word-break: break-word;
+    }}
+
+    .sidebar-view-chip {{
+        display: inline-flex;
+        margin-top: 9px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 800;
+        color: #ccfbf1;
+        background: rgba(15,118,110,0.28);
+        border: 1px solid rgba(20,184,166,0.28);
+    }}
+
+    .hero {{
+        position: relative;
+        overflow: hidden;
+        border-radius: 24px;
+        padding: 28px 30px 26px 30px;
+        margin-bottom: 16px;
+        background: linear-gradient(135deg, #0f172a 0%, #172554 55%, #0f766e 100%);
+        box-shadow: 0 18px 50px rgba(15,23,42,0.16);
+    }}
+
+    .hero::after {{
+        content: "";
+        position: absolute;
+        width: 300px;
+        height: 300px;
+        right: -90px;
+        top: -130px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(45,212,191,0.28) 0%, rgba(45,212,191,0) 70%);
+        pointer-events: none;
+    }}
+
+    .hero-eyebrow {{
+        position: relative;
+        z-index: 1;
+        color: #99f6e4;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-bottom: 7px;
+    }}
+
+    .hero-title {{
+        position: relative;
+        z-index: 1;
+        color: #ffffff;
+        font-size: clamp(28px, 3vw, 40px);
+        font-weight: 850;
+        letter-spacing: -0.04em;
+        line-height: 1.05;
+    }}
+
+    .hero-subtitle {{
+        position: relative;
+        z-index: 1;
+        color: #cbd5e1;
+        font-size: 14px;
+        margin-top: 8px;
+        max-width: 760px;
+    }}
+
+    .hero-meta {{
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 17px;
+    }}
+
+    .hero-chip {{
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 11px;
+        font-weight: 750;
+        color: #e2e8f0;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.10);
+        backdrop-filter: blur(8px);
+    }}
+
+    .quick-nav {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0 0 24px 2px;
+    }}
+
+    .quick-nav a {{
+        display: inline-flex;
+        align-items: center;
+        text-decoration: none;
+        color: #475569;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 999px;
+        padding: 7px 11px;
+        font-size: 11px;
+        font-weight: 750;
+        box-shadow: 0 3px 12px rgba(15,23,42,0.04);
+    }}
+
+    .quick-nav a:hover {{
+        color: #0f766e;
+        border-color: #99f6e4;
+        background: #f0fdfa;
+    }}
+
+    .section-heading {{
+        scroll-margin-top: 24px;
+        margin-top: 10px;
+        margin-bottom: 16px;
+    }}
+
+    .section-kicker {{
+        color: #0f766e;
+        font-size: 10px;
+        font-weight: 850;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }}
+
+    .section-title {{
+        color: #0f172a;
+        font-size: 23px;
+        line-height: 1.15;
+        font-weight: 820;
+        letter-spacing: -0.025em;
+    }}
+
+    .section-subtitle {{
+        color: #64748b;
+        font-size: 12px;
+        margin-top: 5px;
+        max-width: 860px;
+    }}
+
+    .subsection-heading {{
+        margin-top: 7px;
+        margin-bottom: 11px;
+        color: #1e293b;
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: -0.015em;
+    }}
+
+    .section-rule {{
+        height: 1px;
+        margin: 25px 0 27px 0;
+        background: linear-gradient(90deg, transparent, #dbe3ec 18%, #dbe3ec 82%, transparent);
+    }}
+
+    .filter-note {{
+        color: #64748b;
+        font-size: 11px;
+        margin-top: -4px;
+        margin-bottom: 9px;
+    }}
+
+    .filter-summary {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin: 2px 0 18px 0;
+    }}
+
+    .filter-pill {{
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 9px;
+        border-radius: 999px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        color: #475569;
+        font-size: 10px;
+        font-weight: 750;
+        box-shadow: 0 2px 8px rgba(15,23,42,0.03);
+    }}
+
+    .kpi-grid-label {{
+        margin: 2px 0 8px 0;
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+    }}
+
+    .kpi-card {{
+        position: relative;
+        overflow: hidden;
+        min-height: 124px;
+        padding: 17px 16px 15px 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        background: #ffffff;
+        box-shadow: 0 7px 24px rgba(15,23,42,0.055);
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }}
+
+    .kpi-card::before {{
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(180deg, #0f766e, #14b8a6);
+    }}
+
+    .kpi-title {{
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 8px;
+        font-weight: 750;
+        line-height: 1.2;
+    }}
+
+    .kpi-value {{
+        font-size: clamp(20px, 2vw, 28px);
+        font-weight: 850;
+        color: #0f172a;
+        letter-spacing: -0.035em;
+        line-height: 1.05;
+    }}
+
+    .kpi-percentage {{
+        font-size: 11px;
+        color: #0f766e;
+        font-weight: 800;
+        margin-top: 7px;
+        line-height: 1;
+    }}
+
+    .info-card {{
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        background: #ffffff;
+        padding: 17px 18px;
+        box-shadow: 0 7px 24px rgba(15,23,42,0.045);
+        height: 100%;
+        box-sizing: border-box;
+    }}
+
+    .info-card-label {{
+        color: #94a3b8;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.11em;
+        font-weight: 800;
+        margin-bottom: 4px;
+    }}
+
+    .info-card-value {{
+        color: #1e293b;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.45;
+        word-break: break-word;
+    }}
+
+    .status-pill {{
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 850;
+        margin-top: 3px;
+    }}
+
+    .status-active {{ background: #dcfce7; color: #166534; }}
+    .status-inactive {{ background: #fee2e2; color: #991b1b; }}
+    .status-neutral {{ background: #f1f5f9; color: #475569; }}
+
+    .table-caption {{
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin: 3px 0 9px 1px;
+    }}
+
+    .table-caption-title {{
+        color: #334155;
+        font-size: 12px;
+        font-weight: 800;
+    }}
+
+    .table-caption-note {{
+        color: #94a3b8;
+        font-size: 10px;
+    }}
+
+    div[data-testid="stDataFrame"] {{
+        border: 1px solid #e2e8f0;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 5px 18px rgba(15,23,42,0.035);
+        background: #ffffff;
+    }}
+
+    div[data-testid="stDataFrame"] [role="columnheader"] {{
+        background: #f8fafc;
+    }}
+
+    [data-testid="stMetric"] {{
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        background: #ffffff;
+        padding: 15px 16px;
+        box-shadow: 0 6px 18px rgba(15,23,42,0.045);
+    }}
+
+    [data-testid="stMetricLabel"] {{
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 750;
+    }}
+
+    [data-testid="stMetricValue"] {{
+        color: #0f172a;
+        font-weight: 850;
+    }}
+
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="textarea"] > div {{
+        border-radius: 11px;
+    }}
+
+    .stDateInput label, .stSelectbox label, .stTextInput label {{
+        color: #475569 !important;
+        font-size: 11px !important;
+        font-weight: 750 !important;
+    }}
+
+    .stCheckbox label {{
+        color: #475569 !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+    }}
+
+    .stButton > button {{
+        border-radius: 11px;
+        font-weight: 750;
+    }}
+
+    div[data-testid="stExpander"] {{
+        border: 1px solid #e2e8f0;
+        border-radius: 15px;
+        background: #ffffff;
+        box-shadow: 0 5px 18px rgba(15,23,42,0.035);
+    }}
+
+    .footer-note {{
+        text-align: center;
+        color: #94a3b8;
+        font-size: 10px;
+        padding-top: 18px;
+    }}
+
+    @media (max-width: 900px) {{
+        .block-container {{ padding-left: 1rem; padding-right: 1rem; }}
+        .hero {{ padding: 23px 21px; border-radius: 20px; }}
+    }}
 
     </style>
     """,
     unsafe_allow_html=True
 )
+
+st.markdown(
+    f"""
+    <div class="hero">
+        <div class="hero-eyebrow">FastRanking · Accounts Receivable</div>
+        <div class="hero-title">Payments &amp; Collections</div>
+        <div class="hero-subtitle">
+            A focused financial view of invoices, cash collection, outstanding balances,
+            customer history and payments received.
+        </div>
+        <div class="hero-meta">
+            <span class="hero-chip">◉ {html_escape(view_label)}</span>
+            <span class="hero-chip">◷ Updated {pd.Timestamp.today().strftime('%d %b %Y')}</span>
+            <span class="hero-chip">👤 {logged_email or 'Authenticated user'}</span>
+        </div>
+    </div>
+
+    <div class="quick-nav">
+        <a href="#dashboard-overview">01 · Overview</a>
+        <a href="#customer-details">02 · Customers</a>
+        <a href="#payments-received">03 · Payments</a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+def section_heading(anchor_id, kicker, title, subtitle=""):
+    subtitle_html = (
+        f'<div class="section-subtitle">{html_escape(subtitle)}</div>'
+        if subtitle else ""
+    )
+    st.markdown(
+        f"""
+        <div id="{html_escape(anchor_id)}" class="section-heading">
+            <div class="section-kicker">{html_escape(kicker)}</div>
+            <div class="section-title">{html_escape(title)}</div>
+            {subtitle_html}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def subsection_heading(title):
+    st.markdown(
+        f'<div class="subsection-heading">{html_escape(title)}</div>',
+        unsafe_allow_html=True
+    )
+
+
+def table_caption(title, note=""):
+    note_html = (
+        f'<div class="table-caption-note">{html_escape(note)}</div>'
+        if note else ""
+    )
+    st.markdown(
+        f"""
+        <div class="table-caption">
+            <div class="table-caption-title">{html_escape(title)}</div>
+            {note_html}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 # ==========================================================
@@ -269,7 +830,7 @@ def kpi_card(
 
         percentage_html = (
             f'<div class="kpi-percentage">'
-            f'{percentage:.1f}%'
+            f'{percentage:.1f}% collected'
             f'</div>'
         )
 
@@ -280,8 +841,8 @@ def kpi_card(
     st.markdown(
         f"""
         <div class="kpi-card">
-            <div class="kpi-title">{title}</div>
-            <div class="kpi-value">{value}</div>
+            <div class="kpi-title">{html_escape(str(title))}</div>
+            <div class="kpi-value">{html_escape(str(value))}</div>
             {percentage_html}
         </div>
         """,
@@ -1361,128 +1922,135 @@ def load_data():
 # MAIN DASHBOARD FILTERS
 # ==========================================================
 
-st.subheader(
-    "Filters"
+section_heading(
+    "dashboard-overview",
+    "01 · Dashboard Overview",
+    "Invoice Performance",
+    "Filter the invoice population, then review collection, outstanding balances and monthly performance."
 )
 
 
-f1, f2, f3, f4, f5 = st.columns(5)
+with st.container(border=True):
+    st.markdown('<div class="kpi-grid-label">Reporting filters</div>', unsafe_allow_html=True)
+    st.markdown('<div class="filter-note">Choose the reporting period and population used across the overview below.</div>', unsafe_allow_html=True)
+    f1, f2, f3, f4, f5 = st.columns(5)
 
 
-# ==========================================================
-# FIXED DATE RANGE
-# ==========================================================
+    # ==========================================================
+    # FIXED DATE RANGE
+    # ==========================================================
 
-min_date = date(
-    2021,
-    1,
-    1
-)
+    min_date = date(
+        2021,
+        1,
+        1
+    )
 
-max_date = date(
-    2027,
-    12,
-    31
-)
-
-
-current_year = (
-    pd.Timestamp.today().year
-)
-
-
-default_start = date(
-    current_year,
-    1,
-    1
-)
-
-
-default_end = date(
-    current_year,
-    12,
-    31
-)
-
-
-with f1:
-
-    start_date = st.date_input(
-        "Start Date",
-        value=default_start,
-        min_value=min_date,
-        max_value=max_date
+    max_date = date(
+        2027,
+        12,
+        31
     )
 
 
-with f2:
-
-    end_date = st.date_input(
-        "End Date",
-        value=default_end,
-        min_value=min_date,
-        max_value=max_date
+    current_year = (
+        pd.Timestamp.today().year
     )
 
 
-# ==========================================================
-# SERVICE FILTER
-# ==========================================================
-
-with f3:
-
-    service_options = [
-        "All Services",
-        "SEO",
-        "Web Development",
-        "Unclassified"
-    ]
-
-
-    selected_service = st.selectbox(
-        "Service Type",
-        service_options
+    default_start = date(
+        current_year,
+        1,
+        1
     )
 
 
-# ==========================================================
-# INVOICE TYPE FILTER
-# ==========================================================
-
-with f4:
-
-    invoice_type_options = [
-        "All Invoices",
-        "New Customer",
-        "Recurring Customer"
-    ]
-
-
-    selected_invoice_type = st.selectbox(
-        "Invoice Type",
-        invoice_type_options,
-        key="main_invoice_type"
+    default_end = date(
+        current_year,
+        12,
+        31
     )
 
 
-# ==========================================================
-# CUSTOMER STATUS FILTER
-# ==========================================================
+    with f1:
 
-with f5:
-
-    customer_status_options = [
-        "All Customers",
-        "Active",
-        "Inactive"
-    ]
+        start_date = st.date_input(
+            "Start Date",
+            value=default_start,
+            min_value=min_date,
+            max_value=max_date
+        )
 
 
-    selected_customer_status = st.selectbox(
-        "Customer Status",
-        customer_status_options,
-        key="main_customer_status"
-    )
+    with f2:
+
+        end_date = st.date_input(
+            "End Date",
+            value=default_end,
+            min_value=min_date,
+            max_value=max_date
+        )
+
+
+    # ==========================================================
+    # SERVICE FILTER
+    # ==========================================================
+
+    with f3:
+
+        service_options = [
+            "All Services",
+            "SEO",
+            "Web Development",
+            "Unclassified"
+        ]
+
+
+        selected_service = st.selectbox(
+            "Service Type",
+            service_options
+        )
+
+
+    # ==========================================================
+    # INVOICE TYPE FILTER
+    # ==========================================================
+
+    with f4:
+
+        invoice_type_options = [
+            "All Invoices",
+            "New Customer",
+            "Recurring Customer"
+        ]
+
+
+        selected_invoice_type = st.selectbox(
+            "Invoice Type",
+            invoice_type_options,
+            key="main_invoice_type"
+        )
+
+
+    # ==========================================================
+    # CUSTOMER STATUS FILTER
+    # ==========================================================
+
+    with f5:
+
+        customer_status_options = [
+            "All Customers",
+            "Active",
+            "Inactive"
+        ]
+
+
+        selected_customer_status = st.selectbox(
+            "Customer Status",
+            customer_status_options,
+            key="main_customer_status"
+        )
+
 
 
 # ==========================================================
@@ -1552,6 +2120,20 @@ if selected_customer_status != "All Customers":
     ].copy()
 
 
+st.markdown(
+    f"""
+    <div class="filter-summary">
+        <span class="filter-pill">📅 {html_escape(str(start_date))} → {html_escape(str(end_date))}</span>
+        <span class="filter-pill">🧩 {html_escape(selected_service)}</span>
+        <span class="filter-pill">🧾 {html_escape(selected_invoice_type)}</span>
+        <span class="filter-pill">👥 {html_escape(selected_customer_status)}</span>
+        <span class="filter-pill">↳ {len(display_df):,} invoice rows</span>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
 # ==========================================================
 # MAIN KPIs
 # ==========================================================
@@ -1597,6 +2179,9 @@ collection_rate = (
     if total_invoiced > 0
     else 0
 )
+
+
+st.markdown('<div class="kpi-grid-label">Current filtered position</div>', unsafe_allow_html=True)
 
 
 # ==========================================================
@@ -1694,9 +2279,7 @@ overdue_total = overdue_due
 
 if selected_service == "Unclassified":
 
-    st.subheader(
-        "Unclassified Invoices"
-    )
+    subsection_heading("Unclassified Invoices")
 
 
     st.dataframe(
@@ -1978,9 +2561,7 @@ with st.expander(
 # MONTHLY INVOICE SUMMARY
 # ==========================================================
 
-st.subheader(
-    "Monthly Invoice Summary"
-)
+subsection_heading("Monthly Invoice Summary")
 
 
 monthly_invoice_summary = (
@@ -2373,6 +2954,7 @@ if IS_FINANCIAL:
     )
 
 
+    table_caption("Monthly invoice and payment performance", "Amounts shown in GBP")
     st.dataframe(
         monthly_display,
         width="stretch",
@@ -2612,6 +3194,7 @@ else:
         )
 
 
+    table_caption("Monthly collection performance", "Percent of invoiced value collected")
     st.dataframe(
         monthly_percentage,
         width="stretch",
@@ -2625,9 +3208,7 @@ else:
 
 st.divider()
 
-st.subheader(
-    "Customer Invoice Breakdown"
-)
+subsection_heading("Customer Invoice Breakdown")
 
 
 show_outstanding_only = st.checkbox(
@@ -3157,6 +3738,7 @@ styled = styled.apply(
 )
 
 
+table_caption("Customer invoice matrix", "Green = fully paid · Amber = partially paid · Red = unpaid")
 st.dataframe(
     styled,
     use_container_width=True,
@@ -3169,10 +3751,12 @@ st.dataframe(
 # CUSTOMER DRILLDOWN
 # ==========================================================
 
-st.divider()
-
-st.header(
-    "🔍 Customer Details"
+st.markdown('<div class="section-rule"></div>', unsafe_allow_html=True)
+section_heading(
+    "customer-details",
+    "02 · Customer Drilldown",
+    "Customer Details",
+    "Inspect an individual customer across invoices, payments, balances and contact information."
 )
 
 
@@ -3180,93 +3764,95 @@ st.header(
 # CUSTOMER FILTERS
 # ==========================================================
 
-st.subheader(
-    "Customer Filters"
-)
+subsection_heading("Customer Filters")
 
 
-cf1, cf2, cf3, cf4, cf5 = st.columns(5)
+with st.container(border=True):
+    st.markdown('<div class="kpi-grid-label">Customer drilldown filters</div>', unsafe_allow_html=True)
+    st.markdown('<div class="filter-note">These filters control the customer list and the selected customer ledger.</div>', unsafe_allow_html=True)
+    cf1, cf2, cf3, cf4, cf5 = st.columns(5)
 
 
-with cf1:
+    with cf1:
 
-    customer_start_date = st.date_input(
-        "Customer Start Date",
-        value=date(
-            current_year,
-            1,
-            1
-        ),
-        min_value=min_date,
-        max_value=max_date,
-        key="customer_start_date"
-    )
-
-
-with cf2:
-
-    customer_end_date = st.date_input(
-        "Customer End Date",
-        value=date(
-            current_year,
-            12,
-            31
-        ),
-        min_value=min_date,
-        max_value=max_date,
-        key="customer_end_date"
-    )
-
-
-with cf3:
-
-    customer_service_options = [
-        "All Services",
-        "SEO",
-        "Web Development",
-        "Unclassified"
-    ]
-
-
-    customer_selected_service = st.selectbox(
-        "Customer Service Type",
-        customer_service_options,
-        key="customer_service_type"
-    )
-
-
-with cf4:
-
-    customer_invoice_type_options = [
-        "All Invoices",
-        "New Customer",
-        "Recurring Customer"
-    ]
-
-
-    customer_selected_invoice_type = (
-        st.selectbox(
-            "Invoice Type",
-            customer_invoice_type_options,
-            key="customer_invoice_type"
+        customer_start_date = st.date_input(
+            "Customer Start Date",
+            value=date(
+                current_year,
+                1,
+                1
+            ),
+            min_value=min_date,
+            max_value=max_date,
+            key="customer_start_date"
         )
-    )
 
 
-with cf5:
+    with cf2:
 
-    customer_status_options = [
-        "All Customers",
-        "Active",
-        "Inactive"
-    ]
+        customer_end_date = st.date_input(
+            "Customer End Date",
+            value=date(
+                current_year,
+                12,
+                31
+            ),
+            min_value=min_date,
+            max_value=max_date,
+            key="customer_end_date"
+        )
 
 
-    customer_selected_status = st.selectbox(
-        "Customer Status",
-        customer_status_options,
-        key="customer_detail_status"
-    )
+    with cf3:
+
+        customer_service_options = [
+            "All Services",
+            "SEO",
+            "Web Development",
+            "Unclassified"
+        ]
+
+
+        customer_selected_service = st.selectbox(
+            "Customer Service Type",
+            customer_service_options,
+            key="customer_service_type"
+        )
+
+
+    with cf4:
+
+        customer_invoice_type_options = [
+            "All Invoices",
+            "New Customer",
+            "Recurring Customer"
+        ]
+
+
+        customer_selected_invoice_type = (
+            st.selectbox(
+                "Invoice Type",
+                customer_invoice_type_options,
+                key="customer_invoice_type"
+            )
+        )
+
+
+    with cf5:
+
+        customer_status_options = [
+            "All Customers",
+            "Active",
+            "Inactive"
+        ]
+
+
+        customer_selected_status = st.selectbox(
+            "Customer Status",
+            customer_status_options,
+            key="customer_detail_status"
+        )
+
 
 
 # ==========================================================
@@ -3418,9 +4004,7 @@ if customer_list:
         info = customer_info.iloc[0]
 
 
-        st.subheader(
-            "Customer Information"
-        )
+        subsection_heading("Customer Information")
 
 
         customer_name = str(
@@ -3508,48 +4092,39 @@ if customer_list:
         )
 
 
-        c1, c2 = st.columns(2)
+        status_lower = customer_status.lower()
 
+        if status_lower == "active":
+            status_class = "status-active"
+        elif status_lower == "inactive":
+            status_class = "status-inactive"
+        else:
+            status_class = "status-neutral"
 
-        with c1:
+        safe_customer_name = html_escape(customer_name or "-")
+        safe_phone = html_escape(phone_number or "-")
+        safe_alt = html_escape(alt_number or "-")
+        safe_mobile = html_escape(mobile_number or "-")
+        safe_email = html_escape(email_address or "-")
+        safe_address = html_escape(customer_address or "-")
+        safe_status = html_escape(customer_status or "-")
 
-            st.write(
-                "**Customer Name:**",
-                customer_name or "-"
-            )
-
-            st.write(
-                "**Phone Number:**",
-                phone_number or "-"
-            )
-
-            st.write(
-                "**Alt Number:**",
-                alt_number or "-"
-            )
-
-            st.write(
-                "**Mobile Number:**",
-                mobile_number or "-"
-            )
-
-
-        with c2:
-
-            st.write(
-                "**Email:**",
-                email_address or "-"
-            )
-
-            st.write(
-                "**Address:**",
-                customer_address or "-"
-            )
-
-            st.write(
-                "**Status:**",
-                customer_status or "-"
-            )
+        st.markdown(
+            f"""
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:10px;">
+                <div class="info-card"><div class="info-card-label">Customer</div><div class="info-card-value">{safe_customer_name}</div></div>
+                <div class="info-card"><div class="info-card-label">Phone</div><div class="info-card-value">{safe_phone}</div></div>
+                <div class="info-card"><div class="info-card-label">Alternate</div><div class="info-card-value">{safe_alt}</div></div>
+                <div class="info-card"><div class="info-card-label">Mobile</div><div class="info-card-value">{safe_mobile}</div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1.15fr 2fr .65fr;gap:10px;margin-bottom:4px;">
+                <div class="info-card"><div class="info-card-label">Email</div><div class="info-card-value">{safe_email}</div></div>
+                <div class="info-card"><div class="info-card-label">Address</div><div class="info-card-value">{safe_address}</div></div>
+                <div class="info-card"><div class="info-card-label">Status</div><div class="status-pill {status_class}">{safe_status}</div></div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 
         st.divider()
@@ -3586,27 +4161,13 @@ if customer_list:
     if IS_FINANCIAL:
 
         with k1:
-
-            st.metric(
-                "Total Invoiced",
-                f"£{cust_total:,.2f}"
-            )
-
+            kpi_card("Total Invoiced", f"£{cust_total:,.2f}")
 
         with k2:
-
-            st.metric(
-                "Paid",
-                f"£{cust_paid:,.2f}"
-            )
-
+            kpi_card("Paid", f"£{cust_paid:,.2f}")
 
         with k3:
-
-            st.metric(
-                "Outstanding",
-                f"£{cust_balance:,.2f}"
-            )
+            kpi_card("Outstanding", f"£{cust_balance:,.2f}")
 
 
     else:
@@ -3634,27 +4195,13 @@ if customer_list:
 
 
         with k1:
-
-            st.metric(
-                "Payment Rate",
-                f"{customer_paid_pct:.1f}%"
-            )
-
+            kpi_card("Payment Rate", f"{customer_paid_pct:.1f}%")
 
         with k2:
-
-            st.metric(
-                "Outstanding",
-                f"{customer_outstanding_pct:.1f}%"
-            )
-
+            kpi_card("Outstanding", f"{customer_outstanding_pct:.1f}%")
 
         with k3:
-
-            st.metric(
-                "Collection",
-                f"{customer_paid_pct:.1f}%"
-            )
+            kpi_card("Collection", f"{customer_paid_pct:.1f}%")
 
 
     st.divider()
@@ -3664,9 +4211,7 @@ if customer_list:
     # INVOICE LEDGER
     # ======================================================
 
-    st.subheader(
-        "Invoice Ledger"
-    )
+    subsection_heading("Invoice Ledger")
 
 
     ledger = customer_invoices.copy()
@@ -4064,6 +4609,7 @@ if customer_list:
     )
 
 
+    table_caption("Invoice ledger", "Status is derived from payment history and invoice balance")
     st.dataframe(
         ledger_style,
         width="stretch",
@@ -4084,17 +4630,18 @@ else:
 # ==========================================================
 # ==========================================================
 
-st.divider()
-
-st.header(
-    "💷 Payments Received"
+st.markdown('<div class="section-rule"></div>', unsafe_allow_html=True)
+section_heading(
+    "payments-received",
+    "03 · Cash Received",
+    "Payments Received",
+    "Track cash received by actual payment date. Payment filters remain independent from the invoice filters above."
 )
 
 
-st.caption(
-    "Payments are shown based on the actual payment date. "
-    "These filters are completely independent of the "
-    "invoice dashboard filters above."
+st.markdown(
+    '<div class="filter-note">Payments use the actual payment date. These filters are completely independent of the invoice dashboard filters above.</div>',
+    unsafe_allow_html=True
 )
 
 
@@ -4144,29 +4691,32 @@ payment_default_start = date(
 payment_default_end = payment_today
 
 
-pf1, pf2 = st.columns(2)
+with st.container(border=True):
+    st.markdown('<div class="kpi-grid-label">Cash period</div>', unsafe_allow_html=True)
+    pf1, pf2 = st.columns(2)
 
 
-with pf1:
+    with pf1:
 
-    payment_start_date = st.date_input(
-        "Payment Start Date",
-        value=payment_default_start,
-        min_value=payment_min_date,
-        max_value=payment_max_date,
-        key="payment_start_date"
-    )
+        payment_start_date = st.date_input(
+            "Payment Start Date",
+            value=payment_default_start,
+            min_value=payment_min_date,
+            max_value=payment_max_date,
+            key="payment_start_date"
+        )
 
 
-with pf2:
+    with pf2:
 
-    payment_end_date = st.date_input(
-        "Payment End Date",
-        value=payment_default_end,
-        min_value=payment_min_date,
-        max_value=payment_max_date,
-        key="payment_end_date"
-    )
+        payment_end_date = st.date_input(
+            "Payment End Date",
+            value=payment_default_end,
+            min_value=payment_min_date,
+            max_value=payment_max_date,
+            key="payment_end_date"
+        )
+
 
 
 # ==========================================================
@@ -4429,6 +4979,7 @@ else:
         # PAYMENT KPI CARDS
         # ==================================================
 
+        st.markdown('<div class="kpi-grid-label">Selected payment period</div>', unsafe_allow_html=True)
         pk1, pk2, pk3, pk4 = st.columns(4)
 
 
@@ -4468,9 +5019,7 @@ else:
         # DAILY PAYMENT SUMMARY
         # ==================================================
 
-        st.subheader(
-            "Daily Payment Summary"
-        )
+        subsection_heading("Daily Payment Summary")
 
 
         if daily_payments.empty:
@@ -4641,6 +5190,7 @@ else:
             # Display
             # ------------------------------------------------
 
+            table_caption("Daily cash received", "Grouped by the actual payment date")
             st.dataframe(
                 daily_summary,
                 width="stretch",
@@ -4652,9 +5202,7 @@ else:
             # PAYMENT DETAILS
             # ==================================================
 
-            st.subheader(
-                "Payment Details"
-            )
+            subsection_heading("Payment Details")
 
 
             # ------------------------------------------------
@@ -4855,8 +5403,19 @@ else:
             ]
 
 
+            table_caption("Payment details", "Service text is taken directly from Invoice Item Name + Item Desc")
             st.dataframe(
                 payment_details,
                 width="stretch",
                 hide_index=True
             )
+
+
+# ==========================================================
+# POLISHED FOOTER
+# ==========================================================
+
+st.markdown(
+    '<div class="footer-note">FastRanking Payments Dashboard · Accounts receivable, customer drilldown and cash received</div>',
+    unsafe_allow_html=True
+)
